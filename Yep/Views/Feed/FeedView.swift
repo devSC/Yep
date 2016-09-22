@@ -7,12 +7,15 @@
 //
 
 import UIKit
-import Kingfisher
 import AVFoundation
-import RealmSwift
 import MapKit
+import YepKit
+import YepPreview
+import RealmSwift
+import Kingfisher
+import RxSwift
 
-class FeedView: UIView {
+final class FeedView: UIView {
 
     var feed: ConversationFeed? {
         willSet {
@@ -39,7 +42,8 @@ class FeedView: UIView {
         }
     }
 
-    var tapMediaAction: ((transitionView: UIView, image: UIImage?, attachments: [DiscoveredAttachment], index: Int) -> Void)?
+    var tapImagesAction: ((references: [Reference?], attachments: [DiscoveredAttachment], image: UIImage?, index: Int) -> Void)?
+
     var tapGithubRepoAction: (NSURL -> Void)?
     var tapDribbbleShotAction: (NSURL -> Void)?
     var tapLocationAction: ((locationName: String, locationCoordinate: CLLocationCoordinate2D) -> Void)?
@@ -148,7 +152,7 @@ class FeedView: UIView {
         view.translatesAutoresizingMaskIntoConstraints = false
         self.socialWorkContainerView.addSubview(view)
 
-        let views = [
+        let views: [String: AnyObject] = [
             "view": view
         ]
 
@@ -194,7 +198,7 @@ class FeedView: UIView {
         view.translatesAutoresizingMaskIntoConstraints = false
         self.socialWorkContainerView.addSubview(view)
 
-        let views = [
+        let views: [String: AnyObject] = [
             "view": view
         ]
 
@@ -219,7 +223,7 @@ class FeedView: UIView {
         view.translatesAutoresizingMaskIntoConstraints = false
         self.socialWorkContainerView.addSubview(view)
 
-        let views = [
+        let views: [String: AnyObject] = [
             "view": view
         ]
 
@@ -239,12 +243,12 @@ class FeedView: UIView {
     @IBOutlet weak var timeLabelTopConstraint: NSLayoutConstraint!
 
     lazy var socialWorkHalfMaskImageView: UIImageView = {
-        let imageView = UIImageView(image: UIImage(named: "social_media_image_mask"))
+        let imageView = UIImageView(image: UIImage.yep_socialMediaImageMask)
         return imageView
     }()
 
     lazy var socialWorkFullMaskImageView: UIImageView = {
-        let imageView = UIImageView(image: UIImage(named: "social_media_image_mask_full"))
+        let imageView = UIImageView(image: UIImage.yep_socialMediaImageMaskFull)
         return imageView
     }()
     
@@ -258,9 +262,7 @@ class FeedView: UIView {
     static let messageTextViewMaxWidth: CGFloat = {
         let maxWidth = UIScreen.mainScreen().bounds.width - (15 + 40 + 10 + 15)
         return maxWidth
-        }()
-
-    let feedMediaCellID = "FeedMediaCell"
+    }()
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -274,8 +276,13 @@ class FeedView: UIView {
         }
     }
 
+    private var disposableTimer: Disposable?
+
     deinit {
         NSNotificationCenter.defaultCenter().removeObserver(self)
+
+        disposableTimer?.dispose()
+
         println("deinit FeedView")
     }
 
@@ -307,7 +314,9 @@ class FeedView: UIView {
         mediaCollectionView.contentInset = UIEdgeInsets(top: 0, left: 15 + 40 + 10, bottom: 0, right: 15)
         mediaCollectionView.showsHorizontalScrollIndicator = false
         mediaCollectionView.backgroundColor = UIColor.clearColor()
-        mediaCollectionView.registerNib(UINib(nibName: feedMediaCellID, bundle: nil), forCellWithReuseIdentifier: feedMediaCellID)
+
+        mediaCollectionView.registerNibOf(FeedMediaCell)
+
         mediaCollectionView.dataSource = self
         mediaCollectionView.delegate = self
 
@@ -321,6 +330,8 @@ class FeedView: UIView {
 
         let tapSocialWork = UITapGestureRecognizer(target: self, action: #selector(FeedView.tapSocialWork(_:)))
         socialWorkContainerView.addGestureRecognizer(tapSocialWork)
+
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(FeedView.feedAudioDidFinishPlaying(_:)), name: AVPlayerItemDidPlayToEndTimeNotification, object: nil)
     }
 
     func toggleFold(sender: UITapGestureRecognizer) {
@@ -399,14 +410,22 @@ class FeedView: UIView {
 
         if let distance = feed.distance {
             if distance < 1 {
-                distanceLabel.text = NSLocalizedString("Nearby", comment: "")
+                distanceLabel.text = String.trans_titleNearby
             } else {
-                distanceLabel.text = "\(distance.format(".1")) km"
+                distanceLabel.text = "\(distance.yep_format(".1")) km"
             }
         }
 
-        timeLabel.text = "\(NSDate(timeIntervalSince1970: feed.createdUnixTime).timeAgo)"
-
+        let configureTimeLabel: () -> Void = { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.timeLabel.text = feed.timeString
+        }
+        configureTimeLabel()
+        disposableTimer = Observable<Int>
+            .interval(1, scheduler: MainScheduler.instance)
+            .subscribeNext({ _ in
+                configureTimeLabel()
+            })
 
         // social works
 
@@ -499,16 +518,6 @@ class FeedView: UIView {
                 voiceContainerViewWidthConstraint?.constant = width
             }
 
-            /*
-            if let audioPlayer = YepAudioService.sharedManager.audioPlayer where audioPlayer.playing {
-                if let feedID = YepAudioService.sharedManager.playingFeedAudio?.feedID where feedID == feed.feedID {
-                    audioPlaying = true
-
-                    audioPlaybackTimer = NSTimer.scheduledTimerWithTimeInterval(0.02, target: self, selector: "updateAudioPlaybackProgress:", userInfo: nil, repeats: true)
-                }
-            }
-            */
-
             if let onlineAudioPlayer = YepAudioService.sharedManager.onlineAudioPlayer where onlineAudioPlayer.yep_playing {
                 if let feedID = YepAudioService.sharedManager.playingFeedAudio?.feedID where feedID == feed.feedID {
                     audioPlaying = true
@@ -595,70 +604,6 @@ class FeedView: UIView {
 
     var syncPlayAudioAction: (() -> Void)?
 
-    /*
-    @IBAction func playOrPauseAudio(sender: UIButton) {
-
-        if AVAudioSession.sharedInstance().category == AVAudioSessionCategoryRecord {
-            do {
-                try AVAudioSession.sharedInstance().setCategory(AVAudioSessionCategoryPlayback)
-            } catch let error {
-                println("playVoice setCategory failed: \(error)")
-                return
-            }
-        }
-
-        guard let realm = try? Realm(), feed = feed, feedAudio = FeedAudio.feedAudioWithFeedID(feed.feedID, inRealm: realm) else {
-            return
-        }
-
-        func play() {
-
-            YepAudioService.sharedManager.playAudioWithFeedAudio(feedAudio, beginFromTime: audioPlayedDuration, delegate: self, success: { [weak self] in
-                println("playAudioWithFeedAudio success!")
-
-                if let strongSelf = self {
-
-                    strongSelf.audioPlaybackTimer?.invalidate()
-                    strongSelf.audioPlaybackTimer = NSTimer.scheduledTimerWithTimeInterval(0.02, target: strongSelf, selector: "updateAudioPlaybackProgress:", userInfo: nil, repeats: true)
-
-                    YepAudioService.sharedManager.playbackTimer = strongSelf.audioPlaybackTimer
-
-                    strongSelf.audioPlaying = true
-
-                    strongSelf.syncPlayAudioAction?()
-                }
-            })
-        }
-
-        // 如果在播放，就暂停
-        if let audioPlayer = YepAudioService.sharedManager.audioPlayer where audioPlayer.playing {
-
-            audioPlayer.pause()
-
-            if let playbackTimer = YepAudioService.sharedManager.playbackTimer {
-                playbackTimer.invalidate()
-            }
-
-            audioPlaying = false
-
-            if let playingFeedAudio = YepAudioService.sharedManager.playingFeedAudio where playingFeedAudio.feedID == feed.feedID {
-            } else {
-                // 暂停的是别人，咱开始播放
-                play()
-            }
-
-        } else {
-            // 直接播放
-            play()
-        }
-    }
-
-    func updateAudioPlaybackProgress(timer: NSTimer) {
-
-        audioPlayedDuration = YepAudioService.sharedManager.audioPlayCurrentTime
-    }
-    */
-
     private func playOrPauseAudio() {
 
         if AVAudioSession.sharedInstance().category == AVAudioSessionCategoryRecord {
@@ -680,8 +625,6 @@ class FeedView: UIView {
                 println("playOnlineAudioWithFeedAudio success!")
 
                 if let strongSelf = self {
-
-                    NSNotificationCenter.defaultCenter().addObserver(strongSelf, selector: #selector(FeedView.feedAudioDidFinishPlaying(_:)), name: AVPlayerItemDidPlayToEndTimeNotification, object: nil)
 
                     strongSelf.audioPlaybackTimer?.invalidate()
                     strongSelf.audioPlaybackTimer = NSTimer.scheduledTimerWithTimeInterval(0.02, target: strongSelf, selector: #selector(FeedView.updateOnlineAudioPlaybackProgress(_:)), userInfo: nil, repeats: true)
@@ -756,7 +699,7 @@ extension FeedView: UICollectionViewDataSource, UICollectionViewDelegate {
 
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCellWithReuseIdentifier(feedMediaCellID, forIndexPath: indexPath) as! FeedMediaCell
+        let cell: FeedMediaCell = collectionView.dequeueReusableCell(forIndexPath: indexPath)
 
         let attachment = attachments[indexPath.item]
 
@@ -780,8 +723,14 @@ extension FeedView: UICollectionViewDataSource, UICollectionViewDelegate {
 
         let cell = collectionView.cellForItemAtIndexPath(indexPath) as! FeedMediaCell
 
-        let transitionView = cell.imageView
-        tapMediaAction?(transitionView: transitionView, image: cell.imageView.image, attachments: attachments, index: indexPath.item)
+//        let transitionView = cell.imageView
+//        tapMediaAction?(transitionView: transitionView, image: cell.imageView.image, attachments: attachments, index: indexPath.item)
+
+        let references: [Reference?] = (0..<attachments.count).map({
+            let cell = collectionView.cellForItemAtIndexPath(NSIndexPath(forItem: $0, inSection: indexPath.section)) as? FeedMediaCell
+            return cell?.transitionReference
+        })
+        tapImagesAction?(references: references, attachments: attachments, image: cell.imageView.image, index: indexPath.item)
     }
 }
 

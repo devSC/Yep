@@ -7,10 +7,12 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 import Kingfisher
 import MonkeyKing
 
-class SocialWorkDribbbleViewController: BaseViewController {
+final class SocialWorkDribbbleViewController: BaseViewController {
 
     var socialAccount: SocialAccount?
     var profileUser: ProfileUser?
@@ -26,8 +28,6 @@ class SocialWorkDribbbleViewController: BaseViewController {
     
     @IBOutlet private weak var dribbbleCollectionView: UICollectionView!
 
-    private let dribbbleShotCellIdentifier = "DribbbleShotCell"
-
     private lazy var collectionViewWidth: CGFloat = {
         return CGRectGetWidth(self.dribbbleCollectionView.bounds)
     }()
@@ -38,16 +38,9 @@ class SocialWorkDribbbleViewController: BaseViewController {
         }
     }
     
-    override func viewWillAppear(animated: Bool) {
-        
-        super.viewWillAppear(animated)
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
-//        animatedOnNavigationBar = false
-        
         if let socialAccount = socialAccount {
             let accountImageView = UIImageView(image: UIImage(named: socialAccount.iconName)!)
             accountImageView.tintColor = socialAccount.tintColor
@@ -59,8 +52,7 @@ class SocialWorkDribbbleViewController: BaseViewController {
 
         navigationItem.rightBarButtonItem = shareButton
         
-
-        dribbbleCollectionView.registerNib(UINib(nibName: dribbbleShotCellIdentifier, bundle: nil), forCellWithReuseIdentifier: dribbbleShotCellIdentifier)
+        dribbbleCollectionView.registerNibOf(DribbbleShotCell)
 
         if let gestures = navigationController?.view.gestureRecognizers {
             for recognizer in gestures {
@@ -78,28 +70,18 @@ class SocialWorkDribbbleViewController: BaseViewController {
             dribbbleShots = dribbbleWork.shots
 
         } else {
-            var userID: String?
-
-            if let profileUser = profileUser {
-                switch profileUser {
-                case .DiscoveredUserType(let discoveredUser):
-                    userID = discoveredUser.id
-                case .UserType(let user):
-                    userID = user.userID
-                }
-            }
-
-            if let userID = userID {
+            if let userID = profileUser?.userID {
 
                 dribbbleWorkOfUserWithUserID(userID, failureHandler: { [weak self] reason, errorMessage in
                     defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
-                    YepAlert.alertSorry(message: NSLocalizedString("Network is not good!", comment: ""), inViewController: self)
+                    let message = errorMessage ?? String.trans_promptNetworkConnectionIsNotGood
+                    YepAlert.alertSorry(message: message, inViewController: self)
 
                 }, completion: { dribbbleWork in
-                    println("dribbbleWork: \(dribbbleWork.shots.count)")
+                    //println("dribbbleWork: \(dribbbleWork.shots.count)")
 
-                    dispatch_async(dispatch_get_main_queue()) { [weak self] in
+                    SafeDispatch.async { [weak self] in
                         self?.dribbbleWork = dribbbleWork
                         self?.dribbbleShots = dribbbleWork.shots
 
@@ -113,55 +95,32 @@ class SocialWorkDribbbleViewController: BaseViewController {
     // MARK: Actions
 
     private func updateDribbbleCollectionView() {
-        dispatch_async(dispatch_get_main_queue()) {
-            self.dribbbleCollectionView.reloadData()
+        
+        SafeDispatch.async { [weak self] in
+            self?.dribbbleCollectionView.reloadData()
         }
     }
 
     @objc private func share(sender: AnyObject) {
 
-        if let dribbbleWork = dribbbleWork, profileURL = NSURL(string: dribbbleWork.userURLString) {
+        guard let dribbbleWork = dribbbleWork else { return }
+        guard let profileURL = NSURL(string: dribbbleWork.userURLString) else { return }
 
-            let title = String(format: NSLocalizedString("%@'s Dribbble", comment: ""), dribbbleWork.username)
+        let title = String(format: NSLocalizedString("whosDribbble%@", comment: ""), dribbbleWork.username)
 
-            var thumbnail: UIImage?
-            if let socialAccount = socialAccount {
-                thumbnail = UIImage(named: socialAccount.iconName)
-            }
-
-            let info = MonkeyKing.Info(
-                title: title,
-                description: nil,
-                thumbnail: thumbnail,
-                media: .URL(profileURL)
-            )
-
-            let sessionMessage = MonkeyKing.Message.WeChat(.Session(info: info))
-
-            let weChatSessionActivity = WeChatActivity(
-                type: .Session,
-                message: sessionMessage,
-                finish: { success in
-                    println("share Dribbble to WeChat Session success: \(success)")
-                }
-            )
-
-            let timelineMessage = MonkeyKing.Message.WeChat(.Timeline(info: info))
-
-            let weChatTimelineActivity = WeChatActivity(
-                type: .Timeline,
-                message: timelineMessage,
-                finish: { success in
-                    println("share Dribbble to WeChat Timeline success: \(success)")
-                }
-            )
-            
-            let activityViewController = UIActivityViewController(activityItems: [profileURL], applicationActivities: [weChatSessionActivity, weChatTimelineActivity])
-
-            presentViewController(activityViewController, animated: true, completion: nil)
+        var thumbnail: UIImage?
+        if let socialAccount = socialAccount {
+            thumbnail = UIImage(named: socialAccount.iconName)
         }
-    }
 
+        let info = MonkeyKing.Info(
+            title: title,
+            description: nil,
+            thumbnail: thumbnail,
+            media: .URL(profileURL)
+        )
+        self.yep_share(info: info, defaultActivityItem: profileURL)
+    }
 }
 
 extension SocialWorkDribbbleViewController: UICollectionViewDataSource, UICollectionViewDelegate {
@@ -176,7 +135,7 @@ extension SocialWorkDribbbleViewController: UICollectionViewDataSource, UICollec
 
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCellWithReuseIdentifier(dribbbleShotCellIdentifier, forIndexPath: indexPath) as! DribbbleShotCell
+        let cell: DribbbleShotCell = collectionView.dequeueReusableCell(forIndexPath: indexPath)
 
         let shot = dribbbleShots[indexPath.item]
 

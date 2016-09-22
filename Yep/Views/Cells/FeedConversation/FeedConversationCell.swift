@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class FeedConversationCell: UITableViewCell {
+final class FeedConversationCell: UITableViewCell {
 
     @IBOutlet weak var mediaView: FeedMediaView!
     @IBOutlet weak var nameLabel: UILabel!
@@ -28,12 +29,6 @@ class FeedConversationCell: UITableViewCell {
         super.awakeFromNib()
 
         accessoryImageView.tintColor = UIColor.yepCellAccessoryImageViewTintColor()
-    }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
     }
 
     override func prepareForReuse() {
@@ -86,7 +81,7 @@ class FeedConversationCell: UITableViewCell {
             }
             
         } else {
-            self.chatLabel.text = NSLocalizedString("No messages yet.", comment: "")
+            self.chatLabel.text = String.trans_promptNoMessages
         }
     }
 }

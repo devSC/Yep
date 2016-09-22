@@ -8,13 +8,13 @@
 
 import UIKit
 
-class ProfileLayout: UICollectionViewFlowLayout {
+final class ProfileLayout: UICollectionViewFlowLayout {
 
     var scrollUpAction: ((progress: CGFloat) -> Void)?
 
-    let topBarsHeight: CGFloat = 64
+    private let topBarsHeight: CGFloat = 64
 
-    let leftEdgeInset: CGFloat = YepConfig.Profile.leftEdgeInset
+    private let leftEdgeInset: CGFloat = YepConfig.Profile.leftEdgeInset
 
     override func layoutAttributesForElementsInRect(rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
 
@@ -29,7 +29,7 @@ class ProfileLayout: UICollectionViewFlowLayout {
 
             if let layoutAttributes = layoutAttributes {
                 for attributes in layoutAttributes {
-                    if attributes.indexPath.section == ProfileViewController.ProfileSection.Header.rawValue {
+                    if attributes.indexPath.section == ProfileViewController.Section.Header.rawValue {
                         var frame = attributes.frame
                         frame.size.height = max(minY, CGRectGetWidth(collectionView!.bounds) * profileAvatarAspectRatio + deltaY)
                         frame.origin.y = CGRectGetMinY(frame) - deltaY
@@ -50,7 +50,7 @@ class ProfileLayout: UICollectionViewFlowLayout {
 
                 if let layoutAttributes = layoutAttributes {
                     for attributes in layoutAttributes {
-                        if attributes.indexPath.section == ProfileViewController.ProfileSection.Header.rawValue {
+                        if attributes.indexPath.section == ProfileViewController.Section.Header.rawValue {
                             var frame = attributes.frame
                             frame.origin.y = deltaY - coverHideHeight
                             attributes.frame = frame
@@ -61,14 +61,14 @@ class ProfileLayout: UICollectionViewFlowLayout {
                     }
                 }
             }
-            
+
+            let progress: CGFloat
             if coverHideHeight > contentOffset.y {
-                scrollUpAction?(progress: 1.0 - (coverHideHeight - contentOffset.y) / coverHideHeight)
-
+                progress = 1.0 - (coverHideHeight - contentOffset.y) / coverHideHeight
             } else {
-                scrollUpAction?(progress: 1.0)
+                progress = 1.0
             }
-
+            scrollUpAction?(progress: progress)
         }
 
         // 先按照每个 item 的 centerY 分组
@@ -111,7 +111,7 @@ class ProfileLayout: UICollectionViewFlowLayout {
             for attributes in rowCollection {
                 var itemFrame = attributes.frame
 
-                if attributes.representedElementCategory == .Cell && (attributes.indexPath.section == ProfileViewController.ProfileSection.Master.rawValue || attributes.indexPath.section == ProfileViewController.ProfileSection.Learning.rawValue) {
+                if attributes.representedElementCategory == .Cell && (attributes.indexPath.section == ProfileViewController.Section.Master.rawValue || attributes.indexPath.section == ProfileViewController.Section.Learning.rawValue) {
                     if CGRectEqualToRect(previousFrame, CGRectZero) {
                         itemFrame.origin.x = leftEdgeInset
                     } else {
@@ -132,3 +132,4 @@ class ProfileLayout: UICollectionViewFlowLayout {
         return true
     }
 }
+

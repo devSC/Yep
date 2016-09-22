@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class SearchedContactsCell: UITableViewCell {
+final class SearchedContactsCell: UITableViewCell {
 
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nicknameLabel: UILabel!
@@ -27,12 +28,6 @@ class SearchedContactsCell: UITableViewCell {
         separatorInset = YepConfig.ContactsCell.separatorInset
     }
 
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-
     func configureWithUser(user: User) {
 
         let userAvatar = UserAvatar(userID: user.userID, avatarURLString: user.avatarURLString, avatarStyle: miniAvatarStyle)
@@ -41,7 +36,7 @@ class SearchedContactsCell: UITableViewCell {
         nicknameLabel.text = user.nickname
         usernameLabel.text = user.username.isEmpty ? nil : "@\(user.username)"
 
-        topRightLabel.text = String(format: NSLocalizedString("Last seen %@", comment: ""), NSDate(timeIntervalSince1970: user.lastSignInUnixTime).timeAgo.lowercaseString)
+        topRightLabel.text = String.trans_promptLastSeenAt(user.lastSignInUnixTime)
 
         infoLabel.text = user.introduction
     }
@@ -58,8 +53,9 @@ class SearchedContactsCell: UITableViewCell {
             usernameLabel.text = nil
         }
 
-        topRightLabel.text = String(format: NSLocalizedString("Last seen %@", comment: ""), NSDate(timeIntervalSince1970: discoveredUser.lastSignInUnixTime).timeAgo.lowercaseString)
+        topRightLabel.text = String.trans_promptLastSeenAt(discoveredUser.lastSignInUnixTime)
 
         infoLabel.text = discoveredUser.introduction
     }
 }
+

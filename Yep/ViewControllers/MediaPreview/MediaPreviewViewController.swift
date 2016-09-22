@@ -8,6 +8,7 @@
 
 import UIKit
 import AVFoundation
+import YepKit
 import MonkeyKing
 import Kingfisher
 import Ruler
@@ -21,7 +22,7 @@ enum PreviewMedia {
     case WebImage(imageURL: NSURL, linkURL: NSURL)
 }
 
-class MediaPreviewViewController: UIViewController {
+final class MediaPreviewViewController: UIViewController {
 
     var previewMedias: [PreviewMedia] = []
     var startIndex: Int = 0
@@ -96,8 +97,6 @@ class MediaPreviewViewController: UIViewController {
 
     var showFinished = false
 
-    let mediaViewCellID = "MediaViewCell"
-
     deinit {
         NSNotificationCenter.defaultCenter().removeObserver(self)
         println("deinit MediaPreview")
@@ -107,7 +106,8 @@ class MediaPreviewViewController: UIViewController {
         super.viewDidLoad()
 
         mediasCollectionView.backgroundColor = UIColor.clearColor()
-        mediasCollectionView.registerNib(UINib(nibName: mediaViewCellID, bundle: nil), forCellWithReuseIdentifier: mediaViewCellID)
+
+        mediasCollectionView.registerNibOf(MediaViewCell)
 
         guard let previewImageViewInitalFrame = previewImageViewInitalFrame else {
             return
@@ -342,7 +342,7 @@ class MediaPreviewViewController: UIViewController {
 
                     case AVPlayerStatus.ReadyToPlay:
                         println("ReadyToPlay")
-                        dispatch_async(dispatch_get_main_queue()) {
+                        SafeDispatch.async {
                             cell.mediaView.videoPlayerLayer.player?.play()
 
                             cell.mediaView.videoPlayerLayer.hidden = false
@@ -396,7 +396,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
                 cell.mediaView.videoPlayerLayer.hidden = true
 
                 if
-                    let imageFileURL = NSFileManager.yepMessageImageURLWithName(message.localAttachmentName),
+                    let imageFileURL = message.imageFileURL,
                     let image = UIImage(contentsOfFile: imageFileURL.path!) {
                         cell.mediaView.image = image
                 }
@@ -409,7 +409,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
                 mediaControlView.playState = .Playing
 
                 if
-                    let imageFileURL = NSFileManager.yepMessageImageURLWithName(message.localThumbnailName),
+                    let imageFileURL = message.videoThumbnailFileURL,
                     let image = UIImage(contentsOfFile: imageFileURL.path!) {
                         cell.mediaView.image = image
                 }
@@ -453,7 +453,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
 
             imageView.kf_setImageWithURL(imageURL, placeholderImage: nil, optionsInfo: nil, completionHandler: { (image, error, cacheType, imageURL) -> () in
 
-                dispatch_async(dispatch_get_main_queue()) {
+                SafeDispatch.async {
                     cell.mediaView.image = image
 
                     cell.activityIndicator.stopAnimating()
@@ -464,7 +464,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
 
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCellWithReuseIdentifier(mediaViewCellID, forIndexPath: indexPath) as! MediaViewCell
+        let cell: MediaViewCell = collectionView.dequeueReusableCell(forIndexPath: indexPath)
         return cell
     }
 
@@ -546,63 +546,41 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
 
         case .MessageType(let message):
 
-            switch message.mediaType {
+            guard let mediaType = MessageMediaType(rawValue: message.mediaType) else {
+                break
+            }
 
-            case MessageMediaType.Image.rawValue:
+            switch mediaType {
+
+            case .Image:
 
                 mediaControlView.type = .Image
 
-                if let
-                    imageFileURL = NSFileManager.yepMessageImageURLWithName(message.localAttachmentName),
-                    image = UIImage(contentsOfFile: imageFileURL.path!) {
+                guard let imageFileURL = message.imageFileURL else { break }
+                guard let image = UIImage(contentsOfFile: imageFileURL.path!) else { break }
 
-                        mediaControlView.shareAction = { [weak self] in
-
-                            let info = MonkeyKing.Info(
-                                title: nil,
-                                description: nil,
-                                thumbnail: nil,
-                                media: .Image(image)
-                            )
-
-                            let sessionMessage = MonkeyKing.Message.WeChat(.Session(info: info))
-
-                            let weChatSessionActivity = WeChatActivity(
-                                type: .Session,
-                                message: sessionMessage,
-                                finish: { success in
-                                    println("share Image to WeChat Session success: \(success)")
-                                }
-                            )
-
-                            let timelineMessage = MonkeyKing.Message.WeChat(.Timeline(info: info))
-
-                            let weChatTimelineActivity = WeChatActivity(
-                                type: .Timeline,
-                                message: timelineMessage,
-                                finish: { success in
-                                    println("share Image to WeChat Timeline success: \(success)")
-                                }
-                            )
-
-                            let activityViewController = UIActivityViewController(activityItems: [image], applicationActivities: [weChatSessionActivity, weChatTimelineActivity])
-
-                            self?.presentViewController(activityViewController, animated: true, completion: nil)
-                        }
+                mediaControlView.shareAction = { [weak self] in
+                    let info = MonkeyKing.Info(
+                        title: nil,
+                        description: nil,
+                        thumbnail: nil,
+                        media: .Image(image)
+                    )
+                    self?.yep_share(info: info, defaultActivityItem: image)
                 }
 
-            case MessageMediaType.Video.rawValue:
+            case .Video:
 
                 mediaControlView.type = .Video
                 mediaControlView.playState = .Playing
 
                 if let
-                    imageFileURL = NSFileManager.yepMessageImageURLWithName(message.localThumbnailName),
+                    imageFileURL = message.videoThumbnailFileURL,
                     image = UIImage(contentsOfFile: imageFileURL.path!) {
                         cell.mediaView.image = image
                 }
 
-                if let videoFileURL = NSFileManager.yepMessageVideoURLWithName(message.localAttachmentName) {
+                if let videoFileURL = message.videoFileURL {
                     let asset = AVURLAsset(URL: videoFileURL, options: [:])
                     let playerItem = AVPlayerItem(asset: asset)
 
@@ -648,8 +626,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
                     mediaControlView.shareAction = { [weak self] in
                         let activityViewController = UIActivityViewController(activityItems: [videoFileURL], applicationActivities: nil)
 
-                        self?.presentViewController(activityViewController, animated: true, completion: { () -> Void in
-                        })
+                        self?.presentViewController(activityViewController, animated: true, completion: nil)
                     }
                 }
 
@@ -673,30 +650,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
                     thumbnail: nil,
                     media: .Image(image)
                 )
-
-                let sessionMessage = MonkeyKing.Message.WeChat(.Session(info: info))
-
-                let weChatSessionActivity = WeChatActivity(
-                    type: .Session,
-                    message: sessionMessage,
-                    finish: { success in
-                        println("share Image to WeChat Session success: \(success)")
-                    }
-                )
-                
-                let timelineMessage = MonkeyKing.Message.WeChat(.Timeline(info: info))
-                
-                let weChatTimelineActivity = WeChatActivity(
-                    type: .Timeline,
-                    message: timelineMessage,
-                    finish: { success in
-                        println("share Image to WeChat Timeline success: \(success)")
-                    }
-                )
-                
-                let activityViewController = UIActivityViewController(activityItems: [image], applicationActivities: [weChatSessionActivity, weChatTimelineActivity])
-                
-                self?.presentViewController(activityViewController, animated: true, completion: nil)
+                self?.yep_share(info: info, defaultActivityItem: image)
             }
 
         case .WebImage(_, let linkURL):
@@ -709,30 +663,7 @@ extension MediaPreviewViewController: UICollectionViewDataSource, UICollectionVi
                     thumbnail: nil,
                     media: .URL(linkURL)
                 )
-
-                let sessionMessage = MonkeyKing.Message.WeChat(.Session(info: info))
-
-                let weChatSessionActivity = WeChatActivity(
-                    type: .Session,
-                    message: sessionMessage,
-                    finish: { success in
-                        println("share WebImage URL to WeChat Session success: \(success)")
-                    }
-                )
-
-                let timelineMessage = MonkeyKing.Message.WeChat(.Timeline(info: info))
-
-                let weChatTimelineActivity = WeChatActivity(
-                    type: .Timeline,
-                    message: timelineMessage,
-                    finish: { success in
-                        println("share WebImage URL to WeChat Timeline success: \(success)")
-                    }
-                )
-
-                let activityViewController = UIActivityViewController(activityItems: [linkURL], applicationActivities: [weChatSessionActivity, weChatTimelineActivity])
-
-                self?.presentViewController(activityViewController, animated: true, completion: nil)
+                self?.yep_share(info: info, defaultActivityItem: linkURL)
             }
         }
     }

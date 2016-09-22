@@ -7,10 +7,12 @@
 //
 
 import UIKit
+import YepNetworking
 import Ruler
 import RealmSwift
+import YepKit
 
-class EditSkillsViewController: BaseViewController {
+final class EditSkillsViewController: BaseViewController {
 
     var skillSet: SkillSet?
     var afterChangedSkillsAction: (() -> Void)?
@@ -29,21 +31,15 @@ class EditSkillsViewController: BaseViewController {
 
     private var skillCategories: [SkillCategory]?
 
-    private let editSkillCellID = "EditSkillCell"
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        //animatedOnNavigationBar = false
-
         title = skillSet?.name
+
         // get all skill categories
 
-        allSkillCategories(failureHandler: { (reason, errorMessage) -> Void in
-            defaultFailureHandler(reason: reason, errorMessage: errorMessage)
-
-        }, completion: { skillCategories -> Void in
-            self.skillCategories = skillCategories
+        allSkillCategories(failureHandler: nil, completion: { [weak self] skillCategories in
+            self?.skillCategories = skillCategories
         })
 
         // table view
@@ -58,11 +54,11 @@ class EditSkillsViewController: BaseViewController {
         separatorInset.left = Ruler.iPhoneHorizontal(15, 20, 25).value
         skillsTableView.separatorInset = separatorInset
 
-        skillsTableView.registerNib(UINib(nibName: editSkillCellID, bundle: nil), forCellReuseIdentifier: editSkillCellID)
+        skillsTableView.registerNibOf(EditSkillCell)
 
         // add skills view
 
-        addSkillsView.title = NSLocalizedString("Add Skills", comment: "")
+        addSkillsView.title = NSLocalizedString("title.add_skills", comment: "")
 
         addSkillsView.tapAction = { [weak self] in
 
@@ -70,10 +66,9 @@ class EditSkillsViewController: BaseViewController {
                 return
             }
 
-            let storyboard = UIStoryboard(name: "Intro", bundle: nil)
-            let vc = storyboard.instantiateViewControllerWithIdentifier("RegisterSelectSkillsViewController") as! RegisterSelectSkillsViewController
+            let vc = UIStoryboard.Scene.registerSelectSkills
 
-            vc.modalPresentationStyle = UIModalPresentationStyle.Custom
+            vc.modalPresentationStyle = .Custom
             vc.transitioningDelegate = self?.selectSkillsTransitionManager
 
             if let strongSelf = self, me = strongSelf.me, skillSet = strongSelf.skillSet {
@@ -99,107 +94,106 @@ class EditSkillsViewController: BaseViewController {
 
                 vc.selectSkillAction = { [weak self] skill, selected in
 
+                    guard let strongSelf = self else {
+                        return false
+                    }
+
                     var success = false
 
-                    if let strongSelf = self {
+                    switch skillSet {
 
-                        switch skillSet {
+                    case .Master:
 
-                        case .Master:
+                        if selected {
 
-                            if selected {
+                            if strongSelf.learningSkills.filter({ $0.id == skill.id }).count == 0 {
 
-                                if strongSelf.learningSkills.filter({ $0.id == skill.id }).count == 0 {
+                                strongSelf.masterSkills.append(skill)
 
-                                    strongSelf.masterSkills.append(skill)
+                                addSkill(skill, toSkillSet: .Master, failureHandler: nil, completion: { _ in })
 
-                                    addSkill(skill, toSkillSet: .Master, failureHandler: nil, completion: { _ in })
-
-                                    success = true
-                                }
-
-                            } else {
-
-                                let skillsToDelete = strongSelf.masterSkills.filter({ $0.id == skill.id })
-
-                                if skillsToDelete.count > 0 {
-
-                                    for skill in skillsToDelete {
-
-                                        guard let realm = try? Realm() else {
-                                            return success
-                                        }
-
-                                        if let userSkill = userSkillWithSkillID(skill.id, inRealm: realm) {
-                                            let _ = try? realm.write {
-                                                realm.delete(userSkill)
-                                            }
-                                        }
-
-                                        deleteSkill(skill, fromSkillSet: .Master, failureHandler: nil, completion: { success in
-                                            println("deleteSkill \(skill.localName) from Master: \(success)")
-                                        })
-                                    }
-
-                                    strongSelf.masterSkills = strongSelf.masterSkills.filter({ $0.id != skill.id })
-
-                                    success = true
-                                }
+                                success = true
                             }
 
-                        case .Learning:
+                        } else {
+                            let skillsToDelete = strongSelf.masterSkills.filter({ $0.id == skill.id })
 
-                            if selected {
-                                if strongSelf.masterSkills.filter({ $0.id == skill.id }).count == 0 {
+                            if skillsToDelete.count > 0 {
 
-                                    strongSelf.learningSkills.append(skill)
+                                for skill in skillsToDelete {
 
-                                    addSkill(skill, toSkillSet: .Learning, failureHandler: nil, completion: { _ in })
-
-                                    success = true
-                                }
-
-                            } else {
-
-                                let skillsToDelete = strongSelf.learningSkills.filter({ $0.id == skill.id })
-
-                                if skillsToDelete.count > 0 {
-
-                                    for skill in skillsToDelete {
-
-                                        guard let realm = try? Realm() else {
-                                            return success
-                                        }
-
-                                        if let userSkill = userSkillWithSkillID(skill.id, inRealm: realm) {
-                                            let _ = try? realm.write {
-                                                realm.delete(userSkill)
-                                            }
-                                        }
-
-                                        deleteSkill(skill, fromSkillSet: .Learning, failureHandler: nil, completion: { success in
-                                            println("deleteSkill \(skill.localName) from Learning: \(success)")
-                                        })
+                                    guard let realm = try? Realm() else {
+                                        return success
                                     }
-                                    
-                                    strongSelf.learningSkills = strongSelf.learningSkills.filter({ $0.id != skill.id })
-                                    
-                                    success = true
+
+                                    if let userSkill = userSkillWithSkillID(skill.id, inRealm: realm) {
+                                        let _ = try? realm.write {
+                                            realm.delete(userSkill)
+                                        }
+                                    }
+
+                                    deleteSkill(skill, fromSkillSet: .Master, failureHandler: nil, completion: { success in
+                                        println("deleteSkill \(skill.localName) from Master: \(success)")
+                                    })
                                 }
+
+                                strongSelf.masterSkills = strongSelf.masterSkills.filter({ $0.id != skill.id })
+
+                                success = true
                             }
                         }
 
-                        strongSelf.updateSkillsTableView()
-                        strongSelf.afterChangedSkillsAction?()
+                    case .Learning:
+
+                        if selected {
+                            if strongSelf.masterSkills.filter({ $0.id == skill.id }).count == 0 {
+
+                                strongSelf.learningSkills.append(skill)
+
+                                addSkill(skill, toSkillSet: .Learning, failureHandler: nil, completion: { _ in })
+
+                                success = true
+                            }
+
+                        } else {
+                            let skillsToDelete = strongSelf.learningSkills.filter({ $0.id == skill.id })
+
+                            if skillsToDelete.count > 0 {
+
+                                for skill in skillsToDelete {
+
+                                    guard let realm = try? Realm() else {
+                                        return success
+                                    }
+
+                                    if let userSkill = userSkillWithSkillID(skill.id, inRealm: realm) {
+                                        let _ = try? realm.write {
+                                            realm.delete(userSkill)
+                                        }
+                                    }
+
+                                    deleteSkill(skill, fromSkillSet: .Learning, failureHandler: nil, completion: { success in
+                                        println("deleteSkill \(skill.localName) from Learning: \(success)")
+                                    })
+                                }
+                                
+                                strongSelf.learningSkills = strongSelf.learningSkills.filter({ $0.id != skill.id })
+                                
+                                success = true
+                            }
+                        }
                     }
-                    
+
+                    strongSelf.updateSkillsTableView()
+                    strongSelf.afterChangedSkillsAction?()
+
                     return success
                 }
             }
 
-            vc.syncSkillsFromServerAction = { [weak self] in
+            vc.syncSkillsFromServerAction = {
                 syncMyInfoAndDoFurtherAction {
-                    dispatch_async(dispatch_get_main_queue()) {
+                    SafeDispatch.async { [weak self] in
                         self?.updateSkillsTableView()
                         self?.afterChangedSkillsAction?()
                     }
@@ -213,17 +207,16 @@ class EditSkillsViewController: BaseViewController {
 
         realm = try! Realm()
 
-        if let
-            myUserID = YepUserDefaults.userID.value,
-            me = userWithUserID(myUserID, inRealm: realm) {
-                self.me = me
-        }
+        self.me = meInRealm(realm)
     }
 
     // MARK: Actions
 
     private func updateSkillsTableView() {
-        skillsTableView.reloadData()
+
+        SafeDispatch.async { [weak self] in
+            self?.skillsTableView.reloadData()
+        }
     }
 }
 
@@ -247,7 +240,7 @@ extension EditSkillsViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
 
-        let cell = tableView.dequeueReusableCellWithIdentifier(editSkillCellID) as! EditSkillCell
+        let cell: EditSkillCell = tableView.dequeueReusableCell()
 
         var userSkill: UserSkill?
         if let me = me, skillSet = skillSet {

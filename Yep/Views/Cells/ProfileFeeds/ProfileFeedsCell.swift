@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class ProfileFeedsCell: UICollectionViewCell {
+final class ProfileFeedsCell: UICollectionViewCell {
 
     @IBOutlet weak var iconImageView: UIImageView!
     @IBOutlet weak var iconImageViewLeadingConstraint: NSLayoutConstraint!
@@ -72,7 +73,7 @@ class ProfileFeedsCell: UICollectionViewCell {
                     if let thumbnailImage = attachments[i]?.thumbnailImage {
                         imageViews[i].image = thumbnailImage
                     } else {
-                        imageViews[i].image = UIImage(named: "icon_feed_text")
+                        imageViews[i].image = UIImage.yep_iconFeedText
                     }
                 }
             }
@@ -84,7 +85,7 @@ class ProfileFeedsCell: UICollectionViewCell {
 
         enabled = false
 
-        nameLabel.text = NSLocalizedString("Feeds", comment: "")
+        nameLabel.text = String.trans_titleFeeds
 
         iconImageViewLeadingConstraint.constant = YepConfig.Profile.leftEdgeInset
         accessoryImageViewTrailingConstraint.constant = YepConfig.Profile.rightEdgeInset
@@ -117,9 +118,11 @@ class ProfileFeedsCell: UICollectionViewCell {
             }
 
             feedsOfUser(profileUser.userID, pageIndex: 1, perPage: 20, failureHandler: nil, completion: { feeds in
-                println("user's feeds: \(feeds.count)")
 
-                let feedAttachments = feeds.map({ feed -> DiscoveredAttachment? in
+                let validFeeds = feeds.flatMap({ $0 })
+                println("user's feeds: \(validFeeds.count)")
+
+                let feedAttachments = validFeeds.map({ feed -> DiscoveredAttachment? in
                     if let attachment = feed.attachment {
                         if case let .Images(attachments) = attachment {
                             return attachments.first
@@ -129,10 +132,10 @@ class ProfileFeedsCell: UICollectionViewCell {
                     return nil
                 })
 
-                dispatch_async(dispatch_get_main_queue()) { [weak self] in
+                SafeDispatch.async { [weak self] in
                     self?.feedAttachments = feedAttachments
 
-                    completion?(feeds: feeds, feedAttachments: feedAttachments)
+                    completion?(feeds: validFeeds, feedAttachments: feedAttachments)
                 }
             })
         }

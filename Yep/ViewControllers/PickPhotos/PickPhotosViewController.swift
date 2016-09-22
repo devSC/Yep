@@ -8,17 +8,21 @@
 
 import UIKit
 import Photos
+import YepKit
 import Ruler
 
 protocol ReturnPickedPhotosDelegate: class {
     func returnSelectedImages(images: [UIImage], imageAssets: [PHAsset])
 }
 
-class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChangeObserver {
+final class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChangeObserver {
 
     var images: PHFetchResult? {
         didSet {
             collectionView?.reloadData()
+            guard let images = images, collectionView = collectionView else { return }
+            
+            collectionView.scrollToItemAtIndexPath(NSIndexPath(forItem: images.count - 1, inSection: 0), atScrollPosition: .CenteredVertically, animated: false)
         }
     }
     var imagesDidFetch: Bool = false
@@ -33,16 +37,21 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
     var completion: ((images: [UIImage], imageAssets: [PHAsset]) -> Void)?
     var imageLimit = 0
 
-    let photoCellID = "PhotoCell"
-    
+    var newTitle: String {
+        return String.trans_titlePickPhotos + "(\(imageLimit + pickedImages.count)/\(YepConfig.Feed.maxImagesCount))"
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "\(NSLocalizedString("Pick Photos", comment: "")) (\(imageLimit + pickedImages.count)/4)"
+
+        title = newTitle
 
         collectionView?.backgroundColor = UIColor.whiteColor()
         collectionView?.alwaysBounceVertical = true
-        collectionView?.registerNib(UINib(nibName: photoCellID, bundle: nil), forCellWithReuseIdentifier: photoCellID)
-        
+        automaticallyAdjustsScrollViewInsets = false
+
+        collectionView?.registerNibOf(PhotoCell)
+
         if let layout = collectionView?.collectionViewLayout as? UICollectionViewFlowLayout {
 
             let width: CGFloat = Ruler<CGFloat>.iPhoneVertical(77.5, 77.5, 92.5, 102).value
@@ -52,10 +61,10 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
             let gap: CGFloat = Ruler<CGFloat>.iPhoneHorizontal(1, 1, 1).value
             layout.minimumInteritemSpacing = gap
             layout.minimumLineSpacing = gap
-            layout.sectionInset = UIEdgeInsets(top: gap, left: gap, bottom: gap, right: gap)
+            layout.sectionInset = UIEdgeInsets(top: gap + 64, left: gap, bottom: gap, right: gap)
         }
         
-        let backBarButtonItem = UIBarButtonItem(image: UIImage(named: "icon_back"), style: UIBarButtonItemStyle.Plain, target: self, action: #selector(PickPhotosViewController.back(_:)))
+        let backBarButtonItem = UIBarButtonItem(image: UIImage.yep_iconBack, style: .Plain, target: self, action: #selector(PickPhotosViewController.back(_:)))
         navigationItem.leftBarButtonItem = backBarButtonItem
         
         let doneButton = UIBarButtonItem(barButtonSystemItem: .Done, target: self, action: #selector(PickPhotosViewController.done(_:)))
@@ -64,7 +73,7 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
         if !imagesDidFetch {
             let options = PHFetchOptions()
             options.sortDescriptors = [
-                NSSortDescriptor(key: "creationDate", ascending: false)
+                NSSortDescriptor(key: "creationDate", ascending: true)
             ]
             images = PHAsset.fetchAssetsWithMediaType(.Image, options: options)
         }
@@ -85,16 +94,18 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
         
         navigationController?.interactivePopGestureRecognizer?.delegate = self
     }
-    
+
+
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
- 
+        
         guard let images = images else { return }
+        
         imageCacheController = ImageCacheController(imageManager: imageManager, images: images, preheatSize: 1)
         
         navigationController?.interactivePopGestureRecognizer?.enabled = true
     }
-
+    
     // MARK: Actions
     
     func back(sender: UIBarButtonItem) {
@@ -111,9 +122,9 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
 
         let pickedImageAssets = pickedImages
 
-        for imageAsset in pickedImageAssets {
+        let maxSize: CGFloat = Config.Media.imageWidth
 
-            let maxSize: CGFloat = 1024
+        for imageAsset in pickedImageAssets {
 
             let pixelWidth = CGFloat(imageAsset.pixelWidth)
             let pixelHeight = CGFloat(imageAsset.pixelHeight)
@@ -173,7 +184,7 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
 
     override func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCellWithReuseIdentifier(photoCellID, forIndexPath: indexPath) as! PhotoCell
+        let cell: PhotoCell = collectionView.dequeueReusableCell(forIndexPath: indexPath)
         return cell
     }
 
@@ -198,7 +209,7 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
                     pickedImages.removeAtIndex(index)
                 }
             } else {
-                if pickedImageSet.count + imageLimit == 4 {
+                if (pickedImageSet.count + imageLimit) == YepConfig.Feed.maxImagesCount {
                     return
                 }
                 if !pickedImageSet.contains(imageAsset) {
@@ -206,12 +217,15 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
                     pickedImages.append(imageAsset)
                 }
             }
-            title = "\(NSLocalizedString("Pick Photos", comment: "")) (\(pickedImageSet.count + imageLimit)/4)"
+
+            title = newTitle
+
             let cell = collectionView.cellForItemAtIndexPath(indexPath) as! PhotoCell
             cell.photoPickedImageView.hidden = !pickedImageSet.contains(imageAsset)
         }
     }
 
+    /*
     // MARK: - ScrollViewDelegate
 
     override func scrollViewDidScroll(scrollView: UIScrollView) {
@@ -219,7 +233,7 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
         let indexPaths = collectionView?.indexPathsForVisibleItems()
         imageCacheController?.updateVisibleCells(indexPaths as [NSIndexPath]!)
     }
-
+    */
     
     // MARK: - PHPhotoLibraryChangeObserver
 
@@ -231,7 +245,7 @@ class PickPhotosViewController: UICollectionViewController, PHPhotoLibraryChange
 
         self.images = changeDetails.fetchResultAfterChanges
 
-        dispatch_async(dispatch_get_main_queue()) {
+        SafeDispatch.async {
             // Loop through the visible cell indices
             guard let
                 indexPaths = self.collectionView?.indexPathsForVisibleItems(),
@@ -261,4 +275,5 @@ extension PickPhotosViewController: UIGestureRecognizerDelegate {
         }
         return false
     }
+    
 }

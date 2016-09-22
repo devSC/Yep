@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 import RealmSwift
 
 struct DoNotDisturbPeriod {
@@ -62,51 +64,40 @@ struct DoNotDisturbPeriod {
     }
 }
 
-class NotificationsViewController: SegueViewController {
+final class NotificationsViewController: SegueViewController {
 
-    @IBOutlet private weak var tableView: UITableView!
+    @IBOutlet private weak var tableView: UITableView! {
+        didSet {
+            tableView.registerNibOf(DoNotDisturbSwitchCell)
+            tableView.registerNibOf(DoNotDisturbPeriodCell)
+            tableView.registerNibOf(SettingsMoreCell)
+
+            tableView.separatorInset = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
+        }
+    }
 
     private var doNotDisturbPeriod = DoNotDisturbPeriod() {
         didSet {
-            dispatch_async(dispatch_get_main_queue()) {
-                self.tableView.reloadData()
+            SafeDispatch.async { [weak self] in
+                self?.tableView.reloadData()
             }
         }
     }
 
-    private let DoNotDisturbSwitchCellID = "DoNotDisturbSwitchCell"
-    private let DoNotDisturbPeriodCellID = "DoNotDisturbPeriodCell"
-
-    private let settingsMoreCellID = "SettingsMoreCell"
-
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Notifications & Privacy", comment: "")
+        title = String.trans_titleNotificationsAndPrivacy
 
-        tableView.registerNib(UINib(nibName: DoNotDisturbSwitchCellID, bundle: nil), forCellReuseIdentifier: DoNotDisturbSwitchCellID)
-        tableView.registerNib(UINib(nibName: DoNotDisturbPeriodCellID, bundle: nil), forCellReuseIdentifier: DoNotDisturbPeriodCellID)
+        if let me = me(), let userDoNotDisturb = me.doNotDisturb {
 
-        tableView.registerNib(UINib(nibName: settingsMoreCellID, bundle: nil), forCellReuseIdentifier: settingsMoreCellID)
+            doNotDisturbPeriod.isOn = userDoNotDisturb.isOn
 
-        tableView.separatorInset = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 0)
+            doNotDisturbPeriod.fromHour = userDoNotDisturb.fromHour
+            doNotDisturbPeriod.fromMinute = userDoNotDisturb.fromMinute
 
-        let realm = try! Realm()
-
-        if let
-            myUserID = YepUserDefaults.userID.value,
-            me = userWithUserID(myUserID, inRealm: realm) {
-
-                if let userDoNotDisturb = me.doNotDisturb {
-
-                    doNotDisturbPeriod.isOn = userDoNotDisturb.isOn
-
-                    doNotDisturbPeriod.fromHour = userDoNotDisturb.fromHour
-                    doNotDisturbPeriod.fromMinute = userDoNotDisturb.fromMinute
-
-                    doNotDisturbPeriod.toHour = userDoNotDisturb.toHour
-                    doNotDisturbPeriod.toMinute = userDoNotDisturb.toMinute
-                }
+            doNotDisturbPeriod.toHour = userDoNotDisturb.toHour
+            doNotDisturbPeriod.toMinute = userDoNotDisturb.toMinute
         }
     }
 
@@ -133,106 +124,90 @@ class NotificationsViewController: SegueViewController {
             return
         }
 
-        if let
-            myUserID = YepUserDefaults.userID.value,
-            me = userWithUserID(myUserID, inRealm: realm) {
-
-                var userDoNotDisturb = me.doNotDisturb
-
-                if userDoNotDisturb == nil {
-                    let _userDoNotDisturb = UserDoNotDisturb()
-
-                    let _ = try? realm.write {
-                        me.doNotDisturb = _userDoNotDisturb
-                    }
-
-                    userDoNotDisturb = _userDoNotDisturb
-                }
-
-                if let userDoNotDisturb = me.doNotDisturb {
-
-                    let info: JSONDictionary = [
-                        "mute_started_at_string": userDoNotDisturb.serverFromString,
-                        "mute_ended_at_string": userDoNotDisturb.serverToString,
-                    ]
-
-                    updateMyselfWithInfo(info, failureHandler: { [weak self] (reason, errorMessage) in
-                        defaultFailureHandler(reason: reason, errorMessage: errorMessage)
-
-                        YepAlert.alertSorry(message: NSLocalizedString("Enable Do Not Disturb failed!", comment: ""), inViewController: self)
-
-                        failed()
-
-                    }, completion: { success in
-
-                        dispatch_async(dispatch_get_main_queue()) {
-
-                            guard let realm = try? Realm() else {
-                                return
-                            }
-
-                            if let
-                                myUserID = YepUserDefaults.userID.value,
-                                me = userWithUserID(myUserID, inRealm: realm) {
-
-                                    let _ = try? realm.write {
-                                        me.doNotDisturb?.isOn = true
-                                    }
-                            }
-                        }
-                    })
-                }
+        guard let me = meInRealm(realm) else {
+            return
         }
+
+        // create
+        if me.doNotDisturb == nil {
+            let _userDoNotDisturb = UserDoNotDisturb()
+
+            let _ = try? realm.write {
+                me.doNotDisturb = _userDoNotDisturb
+            }
+        }
+
+        guard let userDoNotDisturb = me.doNotDisturb else {
+            return
+        }
+
+        let info: JSONDictionary = [
+            "mute_started_at_string": userDoNotDisturb.serverFromString,
+            "mute_ended_at_string": userDoNotDisturb.serverToString,
+        ]
+
+        updateMyselfWithInfo(info, failureHandler: { [weak self] (reason, errorMessage) in
+            defaultFailureHandler(reason: reason, errorMessage: errorMessage)
+
+            YepAlert.alertSorry(message: String.trans_promptEnableDoNotDisturbFailed, inViewController: self)
+
+            failed()
+
+        }, completion: { success in
+
+            SafeDispatch.async {
+
+                guard let realm = try? Realm() else {
+                    return
+                }
+
+                if let me = meInRealm(realm) {
+                    let _ = try? realm.write {
+                        me.doNotDisturb?.isOn = true
+                    }
+                }
+            }
+        })
     }
 
     private func disableDoNotDisturb(failed failed: () -> Void) {
 
-        guard let realm = try? Realm() else {
+        guard let me = me() else {
             return
         }
 
-        if let
-            myUserID = YepUserDefaults.userID.value,
-            me = userWithUserID(myUserID, inRealm: realm) {
+        if let _ = me.doNotDisturb {
 
-                if let _ = me.doNotDisturb {
+            let info: JSONDictionary = [
+                "mute_started_at_string": "",
+                "mute_ended_at_string": "",
+            ]
 
-                    let info: JSONDictionary = [
-                        "mute_started_at_string": "",
-                        "mute_ended_at_string": "",
-                    ]
+            updateMyselfWithInfo(info, failureHandler: { [weak self] (reason, errorMessage) in
+                defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
-                    updateMyselfWithInfo(info, failureHandler: { [weak self] (reason, errorMessage) in
-                        defaultFailureHandler(reason: reason, errorMessage: errorMessage)
+                YepAlert.alertSorry(message: String.trans_promptDisableDoNotDisturbFailed, inViewController: self)
 
-                        YepAlert.alertSorry(message: NSLocalizedString("Disable Do Not Disturb failed!", comment: ""), inViewController: self)
+                failed()
 
-                        failed()
+            }, completion: { success in
 
-                    }, completion: { success in
+                SafeDispatch.async { [weak self] in
 
-                        dispatch_async(dispatch_get_main_queue()) { [weak self] in
+                    // clean UI
+                    self?.doNotDisturbPeriod = DoNotDisturbPeriod()
 
-                            // clean UI
-                            self?.doNotDisturbPeriod = DoNotDisturbPeriod()
+                    guard let realm = try? Realm() else {
+                        return
+                    }
 
-                            guard let realm = try? Realm() else {
-                                return
-                            }
-
-                            if let
-                                myUserID = YepUserDefaults.userID.value,
-                                me = userWithUserID(myUserID, inRealm: realm) {
-
-                                    if let userDoNotDisturb = me.doNotDisturb {
-                                        let _ = try? realm.write {
-                                            realm.delete(userDoNotDisturb)
-                                        }
-                                    }
-                            }
+                    if let me = meInRealm(realm), let userDoNotDisturb = me.doNotDisturb {
+                        let _ = try? realm.write {
+                            realm.delete(userDoNotDisturb)
                         }
-                    })
+                    }
                 }
+            })
         }
     }
 }
@@ -285,43 +260,46 @@ extension NotificationsViewController: UITableViewDataSource, UITableViewDelegat
             switch indexPath.row {
 
             case DoNotDisturbPeriodRow.Switch.rawValue:
-                let cell = tableView.dequeueReusableCellWithIdentifier(DoNotDisturbSwitchCellID) as! DoNotDisturbSwitchCell
-                cell.promptLabel.text = NSLocalizedString("Do Not Disturb", comment: "")
+
+                let cell: DoNotDisturbSwitchCell = tableView.dequeueReusableCell()
+
+                cell.promptLabel.text = String.trans_titleDoNotDisturb
                 cell.toggleSwitch.on = doNotDisturbPeriod.isOn
 
                 cell.toggleAction = { [weak self] isOn in
 
                     self?.doNotDisturbPeriod.isOn = isOn
 
-                    let indexPath = NSIndexPath(forRow: DoNotDisturbPeriodRow.Period.rawValue, inSection: 0)
+                    self?.tableView.reloadSections(NSIndexSet(index: Section.DoNotDisturbPeriod.rawValue), withRowAnimation: .Automatic)
+
+                    let indexPath = NSIndexPath(forRow: DoNotDisturbPeriodRow.Period.rawValue, inSection: Section.DoNotDisturbPeriod.rawValue)
 
                     if isOn {
-                        self?.tableView.insertRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
-
                         self?.enableDoNotDisturb(failed: {
-                            dispatch_async(dispatch_get_main_queue()) {
+                            SafeDispatch.async { [weak self] in
                                 self?.doNotDisturbPeriod.isOn = false
-                                self?.tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .None)
+                                self?.tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
                             }
                         })
 
                     } else {
-                        self?.tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .None)
-
                         self?.disableDoNotDisturb(failed: {
-                            dispatch_async(dispatch_get_main_queue()) {
+                            SafeDispatch.async { [weak self] in
                                 self?.doNotDisturbPeriod.isOn = true
                                 self?.tableView.insertRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
                             }
                         })
                     }
+
                 }
 
                 return cell
 
             case DoNotDisturbPeriodRow.Period.rawValue:
-                let cell = tableView.dequeueReusableCellWithIdentifier(DoNotDisturbPeriodCellID) as! DoNotDisturbPeriodCell
-                cell.fromPromptLabel.text = NSLocalizedString("From", comment: "")
+
+                let cell: DoNotDisturbPeriodCell = tableView.dequeueReusableCell()
+
+                cell.fromPromptLabel.text = String.trans_timeFrom
                 cell.toPromptLabel.text = NSLocalizedString("To", comment: "")
 
                 cell.fromLabel.text = doNotDisturbPeriod.localFromString
@@ -335,14 +313,14 @@ extension NotificationsViewController: UITableViewDataSource, UITableViewDelegat
 
         case .BlackList:
 
-            let cell = tableView.dequeueReusableCellWithIdentifier(settingsMoreCellID) as! SettingsMoreCell
-            cell.annotationLabel.text = NSLocalizedString("Blocked Users", comment: "")
+            let cell: SettingsMoreCell = tableView.dequeueReusableCell()
+            cell.annotationLabel.text = String.trans_titleBlockedUsers
             return cell
 
         case .CreatorsOfBlockedFeeds:
 
-            let cell = tableView.dequeueReusableCellWithIdentifier(settingsMoreCellID) as! SettingsMoreCell
-            cell.annotationLabel.text = NSLocalizedString("Creators of Blocked Feeds", comment: "")
+            let cell: SettingsMoreCell = tableView.dequeueReusableCell()
+            cell.annotationLabel.text = String.trans_promptCreatorsOfBlockedFeeds
             return cell
         }
 

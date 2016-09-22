@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class DeletedFeedConversationCell: UITableViewCell {
+final class DeletedFeedConversationCell: UITableViewCell {
 
     @IBOutlet weak var typeImageView: UIImageView!
     @IBOutlet weak var deletedPromptLabel: UILabel!
@@ -24,12 +25,6 @@ class DeletedFeedConversationCell: UITableViewCell {
         selectionStyle = .None
     }
 
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-
     func configureWithConversation(conversation: Conversation) {
 
         guard let feed = conversation.withGroup?.withFeed else {
@@ -37,6 +32,6 @@ class DeletedFeedConversationCell: UITableViewCell {
         }
 
         nameLabel.text = feed.body
-        chatLabel.text = NSLocalizedString("Feed has been deleted by creator.", comment: "")
+        chatLabel.text = String.trans_promptFeedDeletedByCreator
     }
 }

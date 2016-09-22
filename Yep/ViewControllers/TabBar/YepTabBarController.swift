@@ -7,10 +7,12 @@
 //
 
 import UIKit
+import YepKit
+import Proposer
 
-class YepTabBarController: UITabBarController {
+final class YepTabBarController: UITabBarController {
 
-    private enum Tab: Int {
+    enum Tab: Int {
 
         case Conversations
         case Contacts
@@ -22,47 +24,68 @@ class YepTabBarController: UITabBarController {
 
             switch self {
             case .Conversations:
-                return NSLocalizedString("Chats", comment: "")
+                return String.trans_titleChats
             case .Contacts:
-                return NSLocalizedString("Contacts", comment: "")
+                return String.trans_titleContacts
             case .Feeds:
-                return NSLocalizedString("Feeds", comment: "")
+                return String.trans_titleFeeds
             case .Discover:
-                return NSLocalizedString("Discover", comment: "")
+                return String.trans_titleDiscover
             case .Profile:
                 return NSLocalizedString("Profile", comment: "")
             }
         }
-    }
 
-    private var previousTab = Tab.Conversations
-
-    private var checkDoubleTapOnFeedsTimer: NSTimer?
-    private var hasFirstTapOnFeedsWhenItIsAtTop = false {
-        willSet {
-            if newValue {
-                let timer = NSTimer.scheduledTimerWithTimeInterval(0.5, target: self, selector: #selector(YepTabBarController.checkDoubleTapOnFeeds(_:)), userInfo: nil, repeats: false)
-                checkDoubleTapOnFeedsTimer = timer
-
-            } else {
-                checkDoubleTapOnFeedsTimer?.invalidate()
+        var canBeenDoubleTap: Bool {
+            switch self {
+            case .Feeds:
+                return true
+            default:
+                return false
             }
         }
     }
 
-    @objc private func checkDoubleTapOnFeeds(timer: NSTimer) {
+    private var previousTab: Tab = .Conversations
+    var tab: Tab? {
+        didSet {
+            if let tab = tab {
+                self.selectedIndex = tab.rawValue
+            }
+        }
+    }
 
-        hasFirstTapOnFeedsWhenItIsAtTop = false
+    private var checkDoubleTapTimer: NSTimer?
+    private var hasFirstTapOnTabWhenItIsAtTop = false {
+        willSet {
+            checkDoubleTapTimer?.invalidate()
+
+            if newValue {
+                let timer = NSTimer.scheduledTimerWithTimeInterval(0.5, target: self, selector: #selector(YepTabBarController.checkDoubleTap(_:)), userInfo: nil, repeats: false)
+                checkDoubleTapTimer = timer
+            }
+        }
+    }
+
+    @objc private func checkDoubleTap(timer: NSTimer) {
+
+        hasFirstTapOnTabWhenItIsAtTop = false
     }
 
     private struct Listener {
         static let lauchStyle = "YepTabBarController.lauchStyle"
     }
 
+    private let tabBarItemTextEnabledListenerName = "YepTabBarController.tabBarItemTextEnabled"
+
     deinit {
+        checkDoubleTapTimer?.invalidate()
+
         if let appDelegate = UIApplication.sharedApplication().delegate as? AppDelegate {
             appDelegate.lauchStyle.removeListenerWithName(Listener.lauchStyle)
         }
+
+        YepUserDefaults.tabBarItemTextEnabled.removeListenerWithName(tabBarItemTextEnabledListenerName)
 
         println("deinit YepTabBar")
     }
@@ -74,23 +97,8 @@ class YepTabBarController: UITabBarController {
 
         view.backgroundColor = UIColor.whiteColor()
 
-        // 将 UITabBarItem 的 image 下移一些，也不显示 title 了
-        /*
-        if let items = tabBar.items as? [UITabBarItem] {
-            for item in items {
-                item.imageInsets = UIEdgeInsetsMake(6, 0, -6, 0)
-                item.title = nil
-            }
-        }
-        */
-
-        // Set Titles
-
-        if let items = tabBar.items {
-            for i in 0..<items.count {
-                let item = items[i]
-                item.title = Tab(rawValue: i)?.title
-            }
+        YepUserDefaults.tabBarItemTextEnabled.bindAndFireListener(tabBarItemTextEnabledListenerName) { [weak self] _ in
+            self?.adjustTabBarItems()
         }
 
         // 处理启动切换
@@ -99,6 +107,42 @@ class YepTabBarController: UITabBarController {
             appDelegate.lauchStyle.bindListener(Listener.lauchStyle) { [weak self] style in
                 if style == .Message {
                     self?.selectedIndex = 0
+                }
+            }
+        }
+
+        delay(3) {
+            if PrivateResource.Location(.WhenInUse).isAuthorized {
+                YepLocationService.turnOn()
+            }
+        }
+    }
+
+    func adjustTabBarItems() {
+
+        let noNeedTitle: Bool
+        if let tabBarItemTextEnabled = YepUserDefaults.tabBarItemTextEnabled.value {
+            noNeedTitle = !tabBarItemTextEnabled
+        } else {
+            noNeedTitle = YepUserDefaults.appLaunchCount.value > YepUserDefaults.appLaunchCountThresholdForTabBarItemTextEnabled
+        }
+
+        if noNeedTitle {
+            // 将 UITabBarItem 的 image 下移一些，也不显示 title 了
+            if let items = tabBar.items {
+                for item in items {
+                    item.imageInsets = UIEdgeInsetsMake(6, 0, -6, 0)
+                    item.title = nil
+                }
+            }
+
+        } else {
+            // Set Titles
+            if let items = tabBar.items {
+                for i in 0..<items.count {
+                    let item = items[i]
+                    item.imageInsets = UIEdgeInsetsZero
+                    item.title = Tab(rawValue: i)?.title
                 }
             }
         }
@@ -119,9 +163,12 @@ class YepTabBarController: UITabBarController {
 
         let duration = (animated ? 0.25 : 0.0)
 
-        UIView.animateWithDuration(duration, animations: {
-            let frame = self.tabBar.frame
-            self.tabBar.frame = CGRectOffset(frame, 0, offsetY);
+        UIView.animateWithDuration(duration, animations: { [weak self] in
+            guard let strongSelf = self else {
+                return
+            }
+            let frame = strongSelf.tabBar.frame
+            strongSelf.tabBar.frame = CGRectOffset(frame, 0, offsetY)
         }, completion: nil)
     }
 }
@@ -129,35 +176,6 @@ class YepTabBarController: UITabBarController {
 // MARK: - UITabBarControllerDelegate
 
 extension YepTabBarController: UITabBarControllerDelegate {
-
-    func tabBarController(tabBarController: UITabBarController, shouldSelectViewController viewController: UIViewController) -> Bool {
-
-        guard
-            let tab = Tab(rawValue: selectedIndex),
-            let nvc = viewController as? UINavigationController else {
-                return false
-        }
-
-        if tab != previousTab {
-            return true
-        }
-
-        if case .Feeds = tab {
-            if let vc = nvc.topViewController as? FeedsViewController {
-                guard let feedsTableView = vc.feedsTableView else {
-                    return true
-                }
-                if feedsTableView.yep_isAtTop {
-                    if !hasFirstTapOnFeedsWhenItIsAtTop {
-                        hasFirstTapOnFeedsWhenItIsAtTop = true
-                        return false
-                    }
-                }
-            }
-        }
-
-        return true
-    }
 
     func tabBarController(tabBarController: UITabBarController, didSelectViewController viewController: UIViewController) {
 
@@ -171,83 +189,42 @@ extension YepTabBarController: UITabBarControllerDelegate {
             NSNotificationCenter.defaultCenter().postNotificationName(YepConfig.Notification.switchedToOthersFromContactsTab, object: nil)
         }
 
-        // 不相等才继续，确保第一次 tap 不做事
-
-        if tab != previousTab {
+        // 相等才继续，确保第一次 tap 不做事
+        guard tab == previousTab else {
             previousTab = tab
+            hasFirstTapOnTabWhenItIsAtTop = false
             return
         }
 
-        switch tab {
-
-        case .Conversations:
-            if let vc = nvc.topViewController as? ConversationsViewController {
-                guard let scrollView = vc.conversationsTableView else {
-                    break
-                }
-                if !scrollView.yep_isAtTop {
-                    scrollView.yep_scrollsToTop()
+        if tab.canBeenDoubleTap {
+            if let vc = nvc.topViewController as? CanScrollsToTop, let scrollView = vc.scrollView {
+                if scrollView.yep_isAtTop {
+                    if !hasFirstTapOnTabWhenItIsAtTop {
+                        hasFirstTapOnTabWhenItIsAtTop = true
+                        return
+                    }
                 }
             }
+        }
 
-        case .Contacts:
-            if let vc = nvc.topViewController as? ContactsViewController {
-                guard let scrollView = vc.contactsTableView else {
-                    break
-                }
-                if !scrollView.yep_isAtTop {
-                    scrollView.yep_scrollsToTop()
-                }
-            }
+        if let vc = nvc.topViewController as? CanScrollsToTop {
 
-        case .Feeds:
-            if let vc = nvc.topViewController as? FeedsViewController {
-                guard let scrollView = vc.feedsTableView else {
-                    break
-                }
-                if !scrollView.yep_isAtTop {
-                    scrollView.yep_scrollsToTop()
+            vc.scrollsToTopIfNeed(otherwise: { [weak self, weak vc] in
 
-                } else {
+                guard tab.canBeenDoubleTap else { return }
+
+                // 目前只特别处理 Feeds
+                guard let scrollView = vc?.scrollView else { return }
+                guard let vc = vc as? FeedsViewController else { return }
+
+                if self?.hasFirstTapOnTabWhenItIsAtTop ?? false {
                     if !vc.feeds.isEmpty && !vc.pullToRefreshView.isRefreshing {
                         scrollView.setContentOffset(CGPoint(x: 0, y: -150), animated: true)
-                        hasFirstTapOnFeedsWhenItIsAtTop = false
+                        self?.hasFirstTapOnTabWhenItIsAtTop = false
                     }
                 }
-            }
-
-        case .Discover:
-            if let vc = nvc.topViewController as? DiscoverViewController {
-                guard let scrollView = vc.discoveredUsersCollectionView else {
-                    break
-                }
-                if !scrollView.yep_isAtTop {
-                    scrollView.yep_scrollsToTop()
-                }
-            }
-
-        case .Profile:
-            if let vc = nvc.topViewController as? ProfileViewController {
-                guard let scrollView = vc.profileCollectionView else {
-                    break
-                }
-                if !scrollView.yep_isAtTop {
-                    scrollView.yep_scrollsToTop()
-                }
-            }
+            })
         }
-
-        /*
-        if selectedIndex == 1 {
-            if let nvc = viewController as? UINavigationController, vc = nvc.topViewController as? ContactsViewController {
-                syncFriendshipsAndDoFurtherAction {
-                    dispatch_async(dispatch_get_main_queue()) { [weak vc] in
-                        vc?.updateContactsTableView()
-                    }
-                }
-            }
-        }
-        */
     }
 }
 

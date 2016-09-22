@@ -9,7 +9,7 @@
 import UIKit
 import Ruler
 
-class ShowViewController: UIViewController {
+final class ShowViewController: UIViewController {
 
     @IBOutlet private weak var scrollView: UIScrollView!
 
@@ -18,8 +18,6 @@ class ShowViewController: UIViewController {
     @IBOutlet private weak var registerButton: UIButton!
     @IBOutlet private weak var loginButton: EdgeBorderButton!
 
-    private var isFirstAppear = true
-
     private var steps = [UIViewController]()
 
     override func viewDidLoad() {
@@ -27,6 +25,8 @@ class ShowViewController: UIViewController {
 
         makeUI()
     }
+
+    private var isFirstAppear = true
 
     override func viewWillAppear(animated: Bool) {
         super.viewWillAppear(animated)
@@ -50,7 +50,7 @@ class ShowViewController: UIViewController {
                 self?.pageControl.alpha = 1
                 self?.registerButton.alpha = 1
                 self?.loginButton.alpha = 1
-            }, completion: { _ in })
+            }, completion: nil)
         }
 
         isFirstAppear = false
@@ -58,88 +58,51 @@ class ShowViewController: UIViewController {
 
     private func makeUI() {
 
-        let stepA = stepGenius()
-        let stepB = stepMatch()
-        let stepC = stepMeet()
-
-        steps = [stepA, stepB, stepC]
+        steps = makeSteps()
 
         pageControl.numberOfPages = steps.count
         pageControl.pageIndicatorTintColor = UIColor.yepBorderColor()
         pageControl.currentPageIndicatorTintColor = UIColor.yepTintColor()
 
         registerButton.setTitle(NSLocalizedString("Sign Up", comment: ""), forState: .Normal)
-        loginButton.setTitle(NSLocalizedString("Login", comment: ""), forState: .Normal)
+        loginButton.setTitle(String.trans_titleLogin, forState: .Normal)
 
         registerButton.backgroundColor = UIColor.yepTintColor()
         loginButton.setTitleColor(UIColor.yepInputTextColor(), forState: .Normal)
 
-        let viewsDictionary = [
+        let views: [String: AnyObject] = [
             "view": view,
-            "stepA": stepA.view,
-            "stepB": stepB.view,
-            "stepC": stepC.view,
+            "stepA": steps[0].view,
+            "stepB": steps[1].view,
+            "stepC": steps[2].view,
         ]
 
-        let vConstraints = NSLayoutConstraint.constraintsWithVisualFormat("V:|[stepA(==view)]|", options: [], metrics: nil, views: viewsDictionary)
+        let vConstraints = NSLayoutConstraint.constraintsWithVisualFormat("V:|[stepA(==view)]|", options: [], metrics: nil, views: views)
 
         NSLayoutConstraint.activateConstraints(vConstraints)
 
-        let hConstraints = NSLayoutConstraint.constraintsWithVisualFormat("H:|[stepA(==view)][stepB(==view)][stepC(==view)]|", options: [.AlignAllBottom, .AlignAllTop], metrics: nil, views: viewsDictionary)
+        let hConstraints = NSLayoutConstraint.constraintsWithVisualFormat("H:|[stepA(==view)][stepB(==view)][stepC(==view)]|", options: [.AlignAllBottom, .AlignAllTop], metrics: nil, views: views)
 
         NSLayoutConstraint.activateConstraints(hConstraints)
     }
 
-    private func stepGenius() -> ShowStepGeniusViewController {
-        let step = storyboard!.instantiateViewControllerWithIdentifier("ShowStepGeniusViewController") as! ShowStepGeniusViewController
+    private func makeSteps() -> [UIViewController] {
 
-        step.view.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(step.view)
+        let steps: [UIViewController] = [
+            UIStoryboard.Scene.showStepGenius,
+            UIStoryboard.Scene.showStepMatch,
+            UIStoryboard.Scene.showStepMeet,
+        ]
 
-        addChildViewController(step)
-        step.didMoveToParentViewController(self)
+        steps.forEach({ step in
+            step.view.translatesAutoresizingMaskIntoConstraints = false
+            scrollView.addSubview(step.view)
 
-        return step
-    }
+            addChildViewController(step)
+            step.didMoveToParentViewController(self)
+        })
 
-    private func stepMatch() -> ShowStepMatchViewController {
-        let step = storyboard!.instantiateViewControllerWithIdentifier("ShowStepMatchViewController") as! ShowStepMatchViewController
-
-        step.view.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(step.view)
-
-        addChildViewController(step)
-        step.didMoveToParentViewController(self)
-
-        return step
-    }
-
-    private func stepMeet() -> ShowStepMeetViewController {
-        let step = storyboard!.instantiateViewControllerWithIdentifier("ShowStepMeetViewController") as! ShowStepMeetViewController
-
-        step.view.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(step.view)
-
-        addChildViewController(step)
-        step.didMoveToParentViewController(self)
-
-        return step
-    }
-
-    // MARK: Actions
-    
-    @IBAction private func register(sender: UIButton) {
-        let storyboard = UIStoryboard(name: "Intro", bundle: nil)
-        let vc = storyboard.instantiateViewControllerWithIdentifier("RegisterPickNameViewController") as! RegisterPickNameViewController
-
-        navigationController?.pushViewController(vc, animated: true)
-    }
-
-    @IBAction private func login(sender: UIButton) {
-        let storyboard = UIStoryboard(name: "Intro", bundle: nil)
-        let vc = storyboard.instantiateViewControllerWithIdentifier("LoginByMobileViewController") as! LoginByMobileViewController
-
-        navigationController?.pushViewController(vc, animated: true)
+        return steps
     }
 }
 

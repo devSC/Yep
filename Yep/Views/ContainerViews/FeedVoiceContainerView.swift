@@ -8,7 +8,7 @@
 
 import UIKit
 
-class FeedVoiceContainerView: UIView {
+final class FeedVoiceContainerView: UIView {
 
     class func fullWidthWithSampleValuesCount(count: Int, timeLengthString: String) -> CGFloat {
         let rect = timeLengthString.boundingRectWithSize(CGSize(width: 320, height: CGFloat(FLT_MAX)), options: [.UsesLineFragmentOrigin, .UsesFontLeading], attributes: YepConfig.FeedBasicCell.voiceTimeLengthTextAttributes, context: nil)
@@ -21,9 +21,9 @@ class FeedVoiceContainerView: UIView {
         willSet {
             if newValue != audioPlaying {
                 if newValue {
-                    playButton.setImage(UIImage(named: "icon_pause"), forState: .Normal)
+                    playButton.setImage(UIImage.yep_iconPause, forState: .Normal)
                 } else {
-                    playButton.setImage(UIImage(named: "icon_playvideo"), forState: .Normal)
+                    playButton.setImage(UIImage.yep_iconPlayvideo, forState: .Normal)
                 }
             }
         }
@@ -31,14 +31,14 @@ class FeedVoiceContainerView: UIView {
 
     lazy var bubbleImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(named: "feed_audio_bubble")
+        imageView.image = UIImage.yep_feedAudioBubble
         imageView.tintColor = UIColor.leftBubbleTintColor()
         return imageView
     }()
 
     lazy var playButton: UIButton = {
         let button = UIButton()
-        button.setImage(UIImage(named: "icon_playvideo"), forState: .Normal)
+        button.setImage(UIImage.yep_iconPlayvideo, forState: .Normal)
         button.tintColor = UIColor.lightGrayColor()
         button.tintAdjustmentMode = .Normal
 
@@ -80,7 +80,7 @@ class FeedVoiceContainerView: UIView {
         voiceSampleView.translatesAutoresizingMaskIntoConstraints = false
         timeLengthLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let views = [
+        let views: [String: AnyObject] = [
             "bubbleImageView": bubbleImageView,
             "playButton": playButton,
             "voiceSampleView": voiceSampleView,

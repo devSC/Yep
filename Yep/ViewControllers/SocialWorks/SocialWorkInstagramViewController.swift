@@ -7,9 +7,11 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 import MonkeyKing
 
-class SocialWorkInstagramViewController: BaseViewController {
+final class SocialWorkInstagramViewController: BaseViewController {
 
     var socialAccount: SocialAccount?
     var profileUser: ProfileUser?
@@ -25,8 +27,6 @@ class SocialWorkInstagramViewController: BaseViewController {
 
     @IBOutlet private weak var instagramCollectionView: UICollectionView!
 
-    private let instagramMediaCellIdentifier = "InstagramMediaCell"
-
     private lazy var collectionViewWidth: CGFloat = {
         return CGRectGetWidth(self.instagramCollectionView.bounds)
     }()
@@ -39,10 +39,6 @@ class SocialWorkInstagramViewController: BaseViewController {
                 shareButton.enabled = true
             }
         }
-    }
-    
-    override func viewWillAppear(animated: Bool) {
-        super.viewWillAppear(animated)
     }
 
     override func viewDidLoad() {
@@ -60,7 +56,7 @@ class SocialWorkInstagramViewController: BaseViewController {
         shareButton.enabled = false
         navigationItem.rightBarButtonItem = shareButton
 
-        instagramCollectionView.registerNib(UINib(nibName: instagramMediaCellIdentifier, bundle: nil), forCellWithReuseIdentifier: instagramMediaCellIdentifier)
+        instagramCollectionView.registerNibOf(InstagramMediaCell)
 
         if let gestures = navigationController?.view.gestureRecognizers {
             for recognizer in gestures {
@@ -78,31 +74,21 @@ class SocialWorkInstagramViewController: BaseViewController {
             self.instagramMedias = instagramWork.medias
             
         } else {
-            var userID: String?
-
-            if let profileUser = profileUser {
-                switch profileUser {
-                case .DiscoveredUserType(let discoveredUser):
-                    userID = discoveredUser.id
-                case .UserType(let user):
-                    userID = user.userID
-                }
-            }
-
-            if let userID = userID {
+            if let userID = profileUser?.userID {
 
                 instagramWorkOfUserWithUserID(userID, failureHandler: { [weak self] (reason, errorMessage) -> Void in
                     defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
-                    YepAlert.alertSorry(message: NSLocalizedString("Network is not good!", comment: ""), inViewController: self)
+                    let message = errorMessage ?? String.trans_promptNetworkConnectionIsNotGood
+                    YepAlert.alertSorry(message: message, inViewController: self)
 
                 }, completion: { instagramWork in
-                    println("instagramWork: \(instagramWork.medias.count)")
+                    //println("instagramWork: \(instagramWork.medias.count)")
 
-                    dispatch_async(dispatch_get_main_queue()) {
-                        self.instagramMedias = instagramWork.medias
+                    SafeDispatch.async { [weak self] in
+                        self?.instagramMedias = instagramWork.medias
 
-                        self.afterGetInstagramWork?(instagramWork)
+                        self?.afterGetInstagramWork?(instagramWork)
                     }
                 })
             }
@@ -112,58 +98,32 @@ class SocialWorkInstagramViewController: BaseViewController {
     // MARK: Actions
 
     private func updateInstagramCollectionView() {
-        dispatch_async(dispatch_get_main_queue()) {
-            self.instagramCollectionView.reloadData()
+
+        SafeDispatch.async { [weak self] in
+            self?.instagramCollectionView.reloadData()
         }
     }
 
     @objc private func share(sender: AnyObject) {
 
-        if let firstMedia = instagramMedias.first {
+        guard let firstMedia = instagramMedias.first else { return}
+        let profileURLString = "https://instagram.com/" + firstMedia.username
+        guard let profileURL = NSURL(string: profileURLString) else { return }
 
-            let profileURLString = "https://instagram.com/" + firstMedia.username
+        let title = String(format: NSLocalizedString("whosInstagram%@", comment: ""), firstMedia.username)
 
-            if let profileURL = NSURL(string: profileURLString) {
-
-                let title = String(format: NSLocalizedString("%@'s Instagram", comment: ""), firstMedia.username)
-
-                var thumbnail: UIImage?
-                if let socialAccount = socialAccount {
-                    thumbnail = UIImage(named: socialAccount.iconName)
-                }
-
-                let info = MonkeyKing.Info(
-                    title: title,
-                    description: nil,
-                    thumbnail: thumbnail,
-                    media: .URL(profileURL)
-                )
-
-                let sessionMessage = MonkeyKing.Message.WeChat(.Session(info: info))
-
-                let weChatSessionActivity = WeChatActivity(
-                    type: .Session,
-                    message: sessionMessage,
-                    finish: { success in
-                        println("share Instagram to WeChat Session success: \(success)")
-                    }
-                )
-
-                let timelineMessage = MonkeyKing.Message.WeChat(.Timeline(info: info))
-
-                let weChatTimelineActivity = WeChatActivity(
-                    type: .Timeline,
-                    message: timelineMessage,
-                    finish: { success in
-                        println("share Instagram to WeChat Timeline success: \(success)")
-                    }
-                )
-
-                let activityViewController = UIActivityViewController(activityItems: [profileURL], applicationActivities: [weChatSessionActivity, weChatTimelineActivity])
-
-                presentViewController(activityViewController, animated: true, completion: nil)
-            }
+        var thumbnail: UIImage?
+        if let socialAccount = socialAccount {
+            thumbnail = UIImage(named: socialAccount.iconName)
         }
+
+        let info = MonkeyKing.Info(
+            title: title,
+            description: nil,
+            thumbnail: thumbnail,
+            media: .URL(profileURL)
+        )
+        self.yep_share(info: info, defaultActivityItem: profileURL)
     }
 }
 
@@ -179,7 +139,7 @@ extension SocialWorkInstagramViewController: UICollectionViewDataSource, UIColle
 
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCellWithReuseIdentifier(instagramMediaCellIdentifier, forIndexPath: indexPath) as! InstagramMediaCell
+        let cell: InstagramMediaCell = collectionView.dequeueReusableCell(forIndexPath: indexPath)
 
         let media = instagramMedias[indexPath.item]
 

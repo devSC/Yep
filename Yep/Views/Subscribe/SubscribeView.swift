@@ -8,25 +8,31 @@
 
 import UIKit
 
-class SubscribeView: UIView {
+final class SubscribeView: UIView {
 
     static let height: CGFloat = 50
 
-    lazy var iconImageView: UIImageView = {
+    var subscribeAction: (() -> Void)?
+    var showWithChangeAction: (() -> Void)?
+    var hideWithChangeAction: (() -> Void)?
+
+    private lazy var blurView = UIVisualEffectView(effect: UIBlurEffect(style: .ExtraLight))
+
+    private lazy var iconImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(named: "icon_subscribe_notify")
+        imageView.image = UIImage.yep_iconSubscribeNotify
         return imageView
     }()
 
-    lazy var promptLabel: UILabel = {
+    private lazy var promptLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFontOfSize(14)
-        label.text = NSLocalizedString("Get notified.", comment: "")
+        label.text = String.trans_promptGetNotifiedWithSubscribe
         label.textColor = UIColor.darkGrayColor()
         return label
     }()
 
-    lazy var subscribeButton: BorderButton = {
+    private lazy var subscribeButton: BorderButton = {
         let button = BorderButton()
         button.titleLabel?.font = UIFont.systemFontOfSize(14)
         button.setTitle(NSLocalizedString("Subscribe", comment: ""), forState: .Normal)
@@ -38,20 +44,17 @@ class SubscribeView: UIView {
         return button
     }()
 
-    lazy var dismissButton: UIButton = {
+    private lazy var dismissButton: UIButton = {
         let button = UIButton()
-        button.setImage(UIImage(named: "icon_subscribe_close"), forState: .Normal)
+        button.setImage(UIImage.yep_iconSubscribeClose, forState: .Normal)
 
         button.addTarget(self, action: #selector(SubscribeView.dismiss(_:)), forControlEvents: .TouchUpInside)
 
         return button
     }()
 
-    var subscribeAction: (() -> Void)?
-    var showWithChangeAction: (() -> Void)?
-    var hideWithChangeAction: (() -> Void)?
-
     override func didMoveToSuperview() {
+        super.didMoveToSuperview()
 
         makeUI()
     }
@@ -61,6 +64,15 @@ class SubscribeView: UIView {
         backgroundColor = UIColor.whiteColor()
 
         do {
+            addSubview(blurView)
+            blurView.translatesAutoresizingMaskIntoConstraints = false
+            blurView.leadingAnchor.constraintEqualToAnchor(leadingAnchor).active = true
+            blurView.trailingAnchor.constraintEqualToAnchor(trailingAnchor).active = true
+            blurView.topAnchor.constraintEqualToAnchor(topAnchor).active = true
+            blurView.bottomAnchor.constraintEqualToAnchor(bottomAnchor).active = true
+        }
+
+        do {
             let horizontalLineView = HorizontalLineView()
             addSubview(horizontalLineView)
             horizontalLineView.translatesAutoresizingMaskIntoConstraints = false
@@ -68,7 +80,7 @@ class SubscribeView: UIView {
             horizontalLineView.backgroundColor = UIColor.clearColor()
             horizontalLineView.atBottom = false
 
-            let views = [
+            let views: [String: AnyObject] = [
                 "horizontalLineView": horizontalLineView,
             ]
 
@@ -81,17 +93,17 @@ class SubscribeView: UIView {
         }
 
         do {
-            addSubview(iconImageView)
-            addSubview(promptLabel)
-            addSubview(subscribeButton)
-            addSubview(dismissButton)
+            blurView.contentView.addSubview(iconImageView)
+            blurView.contentView.addSubview(promptLabel)
+            blurView.contentView.addSubview(subscribeButton)
+            blurView.contentView.addSubview(dismissButton)
 
             iconImageView.translatesAutoresizingMaskIntoConstraints = false
             promptLabel.translatesAutoresizingMaskIntoConstraints = false
             subscribeButton.translatesAutoresizingMaskIntoConstraints = false
             dismissButton.translatesAutoresizingMaskIntoConstraints = false
 
-            let views = [
+            let views: [String: AnyObject] = [
                 "iconImageView": iconImageView,
                 "promptLabel": promptLabel,
                 "subscribeButton": subscribeButton,
@@ -127,14 +139,14 @@ class SubscribeView: UIView {
         }, completion: { _ in })
     }
 
-    func subscribe(sender: BorderButton) {
+    @objc private func subscribe(sender: BorderButton) {
 
         subscribeAction?()
 
         hide()
     }
 
-    func dismiss(sender: UIButton) {
+    @objc private func dismiss(sender: UIButton) {
 
         hide()
     }

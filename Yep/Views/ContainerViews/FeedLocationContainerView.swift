@@ -8,13 +8,13 @@
 
 import UIKit
 
-class FeedLocationContainerView: UIView {
+final class FeedLocationContainerView: UIView {
 
     var tapAction: (() -> Void)?
 
     lazy var backgroundImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(named: "feed_container_background")
+        imageView.image = UIImage.yep_feedContainerBackground
         return imageView
     }()
 
@@ -26,7 +26,7 @@ class FeedLocationContainerView: UIView {
 
     lazy var pinImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(named: "icon_pin_shadow")
+        imageView.image = UIImage.yep_iconPinShadow
         return imageView
     }()
 
@@ -68,7 +68,7 @@ class FeedLocationContainerView: UIView {
         horizontalLineView.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let views = [
+        let views: [String: AnyObject] = [
             "backgroundImageView": backgroundImageView,
             "mapImageView": mapImageView,
             "horizontalLineView": horizontalLineView,

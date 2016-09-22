@@ -7,32 +7,38 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 import Ruler
+import RxSwift
+import RxCocoa
 
-class LoginByMobileViewController: BaseViewController {
+final class LoginByMobileViewController: BaseInputMobileViewController {
+
+    private lazy var disposeBag = DisposeBag()
 
     @IBOutlet private weak var pickMobileNumberPromptLabel: UILabel!
     @IBOutlet private weak var pickMobileNumberPromptLabelTopConstraint: NSLayoutConstraint!
-    
-    @IBOutlet private weak var areaCodeTextField: BorderTextField!
-    @IBOutlet private weak var areaCodeTextFieldWidthConstraint: NSLayoutConstraint!
 
-    @IBOutlet private weak var mobileNumberTextField: BorderTextField!
-    @IBOutlet private weak var mobileNumberTextFieldTopConstraint: NSLayoutConstraint!
-    
     private lazy var nextButton: UIBarButtonItem = {
-        let button = UIBarButtonItem(title: NSLocalizedString("Next", comment: ""), style: .Plain, target: self, action: #selector(LoginByMobileViewController.next(_:)))
+        let button = UIBarButtonItem()
+        button.title = String.trans_buttonNextStep
+        button.rx_tap
+            .subscribeNext({ [weak self] in self?.tryShowLoginVerifyMobile() })
+            .addDisposableTo(self.disposeBag)
         return button
     }()
+
+    deinit {
+        println("deinit LoginByMobile")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        animatedOnNavigationBar = false
-
         view.backgroundColor = UIColor.yepViewBackgroundColor()
 
-        navigationItem.titleView = NavigationTitleLabel(title: NSLocalizedString("Login", comment: ""))
+        navigationItem.titleView = NavigationTitleLabel(title: String.trans_titleLogin)
    
         navigationItem.rightBarButtonItem = nextButton
 
@@ -40,18 +46,21 @@ class LoginByMobileViewController: BaseViewController {
 
         areaCodeTextField.text = NSTimeZone.areaCode
         areaCodeTextField.backgroundColor = UIColor.whiteColor()
-        
         areaCodeTextField.delegate = self
-        areaCodeTextField.addTarget(self, action: #selector(LoginByMobileViewController.textFieldDidChange(_:)), forControlEvents: .EditingChanged)
+        areaCodeTextField.rx_text
+            .subscribeNext({ [weak self] _ in self?.adjustAreaCodeTextFieldWidth() })
+            .addDisposableTo(disposeBag)
 
         mobileNumberTextField.placeholder = ""
         mobileNumberTextField.backgroundColor = UIColor.whiteColor()
         mobileNumberTextField.textColor = UIColor.yepInputTextColor()
         mobileNumberTextField.delegate = self
-        mobileNumberTextField.addTarget(self, action: #selector(LoginByMobileViewController.textFieldDidChange(_:)), forControlEvents: .EditingChanged)
+
+        Observable.combineLatest(areaCodeTextField.rx_text, mobileNumberTextField.rx_text) { !$0.isEmpty && !$1.isEmpty }
+            .bindTo(nextButton.rx_enabled)
+            .addDisposableTo(disposeBag)
 
         pickMobileNumberPromptLabelTopConstraint.constant = Ruler.iPhoneVertical(30, 50, 60, 60).value
-        mobileNumberTextFieldTopConstraint.constant = Ruler.iPhoneVertical(30, 40, 50, 50).value
     }
 
     override func viewWillAppear(animated: Bool) {
@@ -68,73 +77,57 @@ class LoginByMobileViewController: BaseViewController {
 
     // MARK: Actions
 
-    private func adjustAreaCodeTextFieldWidth() {
-        guard let text = areaCodeTextField.text else {
-            return
-        }
-
-        let size = text.sizeWithAttributes(areaCodeTextField.editing ? areaCodeTextField.typingAttributes : areaCodeTextField.defaultTextAttributes)
-
-        let width = 32 + (size.width + 22) + 20
-
-        UIView.animateWithDuration(0.1, delay: 0.0, options: .CurveEaseInOut, animations: { _ in
-            self.areaCodeTextFieldWidthConstraint.constant = max(width, 100)
-            self.view.layoutIfNeeded()
-        }, completion: { finished in
-        })
-    }
-
-    @objc private func textFieldDidChange(textField: UITextField) {
-
-        guard let areaCode = areaCodeTextField.text, mobile = mobileNumberTextField.text else {
-            return
-        }
-
-        nextButton.enabled = !areaCode.isEmpty && !mobile.isEmpty
-
-        if textField == areaCodeTextField {
-            adjustAreaCodeTextFieldWidth()
-        }
-    }
-
-    @objc private func next(sender: UIBarButtonItem) {
+    override func tappedKeyboardReturn() {
         tryShowLoginVerifyMobile()
     }
-
-    private func tryShowLoginVerifyMobile() {
+    
+    func tryShowLoginVerifyMobile() {
         
         view.endEditing(true)
 
-        guard let areaCode = areaCodeTextField.text, mobile = mobileNumberTextField.text else {
+        guard let areaCode = areaCodeTextField.text, number = mobileNumberTextField.text else {
             return
         }
+        let mobilePhone = MobilePhone(areaCode: areaCode, number: number)
+        sharedStore().dispatch(MobilePhoneUpdateAction(mobilePhone: mobilePhone))
 
         YepHUD.showActivityIndicator()
         
-        sendVerifyCodeOfMobile(mobile, withAreaCode: areaCode, useMethod: .SMS, failureHandler: { [weak self] reason, errorMessage in
+        requestSendVerifyCodeOfMobilePhone(mobilePhone, useMethod: .SMS, failureHandler: { reason, errorMessage in
             defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
             YepHUD.hideActivityIndicator()
 
-            if let errorMessage = errorMessage {
-                YepAlert.alertSorry(message: errorMessage, inViewController: self, withDismissAction: { () -> Void in
-                    dispatch_async(dispatch_get_main_queue()) {
-                        self?.mobileNumberTextField.becomeFirstResponder()
-                    }
+            if case .NoSuccessStatusCode(_, let errorCode) = reason where errorCode == .NotYetRegistered {
+
+                YepAlert.confirmOrCancel(title: String.trans_titleNotice, message: String(format: NSLocalizedString("This number (%@) not yet registered! Would you like to register it now?", comment: ""), mobilePhone.fullNumber), confirmTitle: String.trans_titleOK, cancelTitle: String.trans_cancel, inViewController: self, withConfirmAction: { [weak self] in
+
+                    self?.performSegueWithIdentifier("showRegisterPickName", sender: nil)
+
+                }, cancelAction: {
                 })
+
+            } else {
+                if let errorMessage = errorMessage {
+                    YepAlert.alertSorry(message: errorMessage, inViewController: self, withDismissAction: {
+                        SafeDispatch.async { [weak self] in
+                            self?.mobileNumberTextField.becomeFirstResponder()
+                        }
+                    })
+                }
             }
 
-        }, completion: { [weak self] success in
+        }, completion: { success in
 
             YepHUD.hideActivityIndicator()
 
             if success {
-                dispatch_async(dispatch_get_main_queue()) {
+                SafeDispatch.async { [weak self] in
                     self?.showLoginVerifyMobile()
                 }
 
             } else {
-                YepAlert.alertSorry(message: NSLocalizedString("Failed to send verification code!", comment: ""), inViewController: self, withDismissAction: { [weak self] in
+                YepAlert.alertSorry(message: String.trans_promptRequestSendVerificationCodeFailed, inViewController: self, withDismissAction: { [weak self] in
                     self?.mobileNumberTextField.becomeFirstResponder()
                 })
             }
@@ -142,62 +135,14 @@ class LoginByMobileViewController: BaseViewController {
     }
 
     private func showLoginVerifyMobile() {
-        guard let areaCode = areaCodeTextField.text, mobile = mobileNumberTextField.text else {
+
+        guard let areaCode = areaCodeTextField.text, number = mobileNumberTextField.text else {
             return
         }
+        let mobilePhone = MobilePhone(areaCode: areaCode, number: number)
+        sharedStore().dispatch(MobilePhoneUpdateAction(mobilePhone: mobilePhone))
 
-        self.performSegueWithIdentifier("showLoginVerifyMobile", sender: ["mobile" : mobile, "areaCode": areaCode])
-    }
-
-    // MARK: Navigation
-
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        if segue.identifier == "showLoginVerifyMobile" {
-
-            if let info = sender as? [String: String] {
-                let vc = segue.destinationViewController as! LoginVerifyMobileViewController
-
-                vc.mobile = info["mobile"]
-                vc.areaCode = info["areaCode"]
-            }
-        }
-    }
-
-}
-
-extension LoginByMobileViewController: UITextFieldDelegate {
-
-    func textFieldShouldBeginEditing(textField: UITextField) -> Bool {
-
-        if textField == areaCodeTextField {
-            adjustAreaCodeTextFieldWidth()
-        }
-
-        return true
-    }
-
-    func textFieldDidEndEditing(textField: UITextField) {
-
-        if textField == areaCodeTextField {
-            UIView.animateWithDuration(0.1, delay: 0.0, options: .CurveEaseInOut, animations: { _ in
-                self.areaCodeTextFieldWidthConstraint.constant = 60
-                self.view.layoutIfNeeded()
-            }, completion: { finished in
-            })
-        }
-    }
-
-    func textFieldShouldReturn(textField: UITextField) -> Bool {
-
-        guard let areaCode = areaCodeTextField.text, mobile = mobileNumberTextField.text else {
-            return true
-        }
-
-        if !areaCode.isEmpty && !mobile.isEmpty {
-            tryShowLoginVerifyMobile()
-        }
-
-        return true
+        self.performSegueWithIdentifier("showLoginVerifyMobile", sender: nil)
     }
 }
 

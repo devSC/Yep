@@ -8,23 +8,23 @@
 
 import UIKit
 
-class SearchMoreResultsCell: UITableViewCell {
+final class SearchMoreResultsCell: UITableViewCell {
 
     var fold: Bool = true {
         didSet {
             if fold {
                 showMoreLabel.text = NSLocalizedString("Show More", comment: "")
-                arrowImageView.image = UIImage(named: "icon_arrow_down")
+                arrowImageView.image = UIImage.yep_iconArrowDown
             } else {
-                showMoreLabel.text = NSLocalizedString("Hide", comment: "")
-                arrowImageView.image = UIImage(named: "icon_arrow_up")
+                showMoreLabel.text = String.trans_titleHide
+                arrowImageView.image = UIImage.yep_iconArrowUp
             }
         }
     }
 
     @IBOutlet weak var showMoreLabel: UILabel! {
         didSet {
-            showMoreLabel.textColor = UIColor(red: 199/255.0, green: 199/255.0, blue: 204/255.0, alpha: 1)
+            showMoreLabel.textColor = UIColor.yep_mangmorGrayColor()
         }
     }
     @IBOutlet weak var arrowImageView: UIImageView!
@@ -35,11 +35,5 @@ class SearchMoreResultsCell: UITableViewCell {
         selectionStyle = .None
         separatorInset = YepConfig.SearchedItemCell.separatorInset
     }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-    
 }
+    

@@ -9,13 +9,15 @@
 import UIKit
 
 protocol PullToRefreshViewDelegate: class {
+
+    var scrollView: UIScrollView? { get }
+
     func pulllToRefreshViewDidRefresh(pulllToRefreshView: PullToRefreshView)
-    func scrollView() -> UIScrollView
 }
 
 private let sceneHeight: CGFloat = 80
 
-class PullToRefreshView: UIView {
+final class PullToRefreshView: UIView {
     
     var refreshView: YepRefreshView!
 
@@ -89,9 +91,8 @@ class PullToRefreshView: UIView {
         isRefreshing = true
 
         UIView.animateWithDuration(0.25, delay: 0, options: .CurveEaseInOut, animations: { [weak self] in
-            self?.delegate?.scrollView().contentInset.top += sceneHeight
-        }, completion: { (_) -> Void in
-        })
+            self?.delegate?.scrollView?.contentInset.top += sceneHeight
+        }, completion: nil)
     }
 
     func endRefreshingAndDoFurtherAction(furtherAction: () -> Void) {
@@ -103,15 +104,15 @@ class PullToRefreshView: UIView {
         isRefreshing = false
 
         UIView.animateWithDuration(0.25, delay: 0, options: .CurveEaseInOut, animations: { [weak self] in
-            self?.delegate?.scrollView().contentInset.top -= sceneHeight
+            self?.delegate?.scrollView?.contentInset.top -= sceneHeight
 
-        }, completion: { (_) -> Void in
+        }, completion: { [weak self] (_) in
 
             furtherAction()
             
-            self.refreshView.stopFlashing()
+            self?.refreshView.stopFlashing()
 
-            self.refreshView.updateRamdonShapePositions()
+            self?.refreshView.updateRamdonShapePositions()
         })
     }
 
@@ -162,7 +163,7 @@ extension PullToRefreshView: UIScrollViewDelegate {
     }
 }
 
-class RefreshItem {
+final class RefreshItem {
 
     unowned var view: UIView
 

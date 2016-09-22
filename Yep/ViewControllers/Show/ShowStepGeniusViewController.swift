@@ -8,7 +8,7 @@
 
 import UIKit
 
-class ShowStepGeniusViewController: ShowStepViewController {
+final class ShowStepGeniusViewController: ShowStepViewController {
 
     @IBOutlet private weak var rightPurpleDot: UIImageView!
     @IBOutlet private weak var leftGreenDot: UIImageView!
@@ -27,8 +27,8 @@ class ShowStepGeniusViewController: ShowStepViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        titleLabel.text = NSLocalizedString("Genius", comment: "")
-        subTitleLabel.text = NSLocalizedString("Discover them around you", comment: "")
+        titleLabel.text = String.trans_showGenius
+        subTitleLabel.text = String.trans_showDiscoverThem
     }
 
     override func viewDidAppear(animated: Bool) {

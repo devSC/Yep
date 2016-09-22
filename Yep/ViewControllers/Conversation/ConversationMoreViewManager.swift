@@ -7,8 +7,9 @@
 //
 
 import Foundation
+import YepKit
 
-class ConversationMoreViewManager {
+final class ConversationMoreViewManager {
 
     var conversation: Conversation?
 
@@ -148,7 +149,7 @@ class ConversationMoreViewManager {
 
     private func makeDoNotDisturbItem(notificationEnabled notificationEnabled: Bool) -> ActionSheetView.Item {
         return .Switch(
-            title: NSLocalizedString("Do not disturb", comment: ""),
+            title: String.trans_titleDoNotDisturb,
             titleColor: UIColor.darkGrayColor(),
             switchOn: !notificationEnabled,
             action: { [weak self] switchOn in
@@ -159,7 +160,7 @@ class ConversationMoreViewManager {
 
     private func makePushNotificationsItem(notificationEnabled notificationEnabled: Bool) -> ActionSheetView.Item {
         return .Switch(
-            title: NSLocalizedString("Push notifications", comment: ""),
+            title: NSLocalizedString("Push Notifications", comment: ""),
             titleColor: UIColor.darkGrayColor(),
             switchOn: notificationEnabled,
             action: { [weak self] switchOn in
@@ -170,7 +171,7 @@ class ConversationMoreViewManager {
 
     private func makeBlockItem(blocked blocked: Bool) -> ActionSheetView.Item {
         return .Default(
-            title: blocked ? NSLocalizedString("Unblock", comment: "") : NSLocalizedString("Block", comment: ""),
+            title: blocked ? NSLocalizedString("Unblock", comment: "") : String.trans_titleBlock,
             titleColor: UIColor.redColor(),
             action: { [weak self] in
                 self?.toggleBlockAction?()
@@ -186,7 +187,7 @@ class ConversationMoreViewManager {
 
         let groupActionTitle: String
         if isMyFeed {
-            groupActionTitle = NSLocalizedString("Delete", comment: "")
+            groupActionTitle = String.trans_titleDelete
         } else {
             if includeMe {
                 groupActionTitle = NSLocalizedString("Unsubscribe", comment: "")

@@ -8,7 +8,7 @@
 
 import UIKit
 
-class AlbumListCell: UITableViewCell {
+final class AlbumListCell: UITableViewCell {
 
     @IBOutlet weak var countLabel: UILabel!
     @IBOutlet weak var titleLabel: UILabel!
@@ -26,11 +26,5 @@ class AlbumListCell: UITableViewCell {
         titleLabel.text = nil
         posterImageView.image = nil
     }
-    
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-    
 }
+ 

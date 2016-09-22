@@ -8,7 +8,7 @@
 
 import UIKit
 
-class FeedConversationDockCell: UITableViewCell {
+final class FeedConversationDockCell: UITableViewCell {
 
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nameLabel: UILabel!
@@ -25,14 +25,8 @@ class FeedConversationDockCell: UITableViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
 
-        nameLabel.text = NSLocalizedString("Joined Feeds", comment: "")
+        nameLabel.text = String.trans_titleJoinedFeeds
         accessoryImageView.tintColor = UIColor.yepCellAccessoryImageViewTintColor()
-    }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
     }
 }
 

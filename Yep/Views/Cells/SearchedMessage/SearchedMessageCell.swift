@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class SearchedMessageCell: UITableViewCell {
+final class SearchedMessageCell: UITableViewCell {
 
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nicknameLabel: UILabel!
@@ -19,12 +20,6 @@ class SearchedMessageCell: UITableViewCell {
         super.awakeFromNib()
 
         separatorInset = YepConfig.SearchedItemCell.separatorInset
-    }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
     }
 
     override func prepareForReuse() {
@@ -48,7 +43,7 @@ class SearchedMessageCell: UITableViewCell {
         nicknameLabel.text = user.nickname
 
         if let keyword = keyword {
-            messageLabel.attributedText = message.textContent.yep_hightlightSearchKeyword(keyword)
+            messageLabel.attributedText = message.textContent.yep_hightlightSearchKeyword(keyword, baseFont: YepConfig.SearchedItemCell.messageFont, baseColor: YepConfig.SearchedItemCell.messageColor)
 
         } else {
             messageLabel.text = message.textContent
@@ -72,7 +67,7 @@ class SearchedMessageCell: UITableViewCell {
 
             if count > 1 {
                 messageLabel.textColor = UIColor.yepTintColor()
-                messageLabel.text = String(format: NSLocalizedString("%d messages", comment: ""), count)
+                messageLabel.text = String(format: NSLocalizedString("countMessages%d", comment: ""), count)
 
                 timeLabel.hidden = true
                 timeLabel.text = nil
@@ -81,7 +76,7 @@ class SearchedMessageCell: UITableViewCell {
                 messageLabel.textColor = UIColor.blackColor()
 
                 if let keyword = keyword {
-                    messageLabel.attributedText = message.textContent.yep_hightlightSearchKeyword(keyword)
+                    messageLabel.attributedText = message.textContent.yep_hightlightSearchKeyword(keyword, baseFont: YepConfig.SearchedItemCell.messageFont, baseColor: YepConfig.SearchedItemCell.messageColor)
 
                 } else {
                     messageLabel.text = message.textContent
@@ -93,3 +88,4 @@ class SearchedMessageCell: UITableViewCell {
         }
     }
 }
+

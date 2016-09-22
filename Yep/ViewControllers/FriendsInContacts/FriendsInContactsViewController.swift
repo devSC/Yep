@@ -7,22 +7,17 @@
 //
 
 import UIKit
-import Contacts
+import YepKit
+import YepNetworking
 
-class FriendsInContactsViewController: BaseViewController {
-
-    struct Notification {
-        static let NewFriends = "NewFriendsInContactsNotification"
-    }
-
-    private let cellIdentifier = "ContactsCell"
+final class FriendsInContactsViewController: BaseViewController {
 
     @IBOutlet private weak var friendsTableView: UITableView! {
         didSet {
             friendsTableView.separatorColor = UIColor.yepCellSeparatorColor()
             friendsTableView.separatorInset = YepConfig.ContactsCell.separatorInset
 
-            friendsTableView.registerNib(UINib(nibName: cellIdentifier, bundle: nil), forCellReuseIdentifier: cellIdentifier)
+            friendsTableView.registerNibOf(ContactsCell)
             friendsTableView.rowHeight = 80
             friendsTableView.tableFooterView = UIView()
         }
@@ -30,47 +25,15 @@ class FriendsInContactsViewController: BaseViewController {
 
     @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
 
-    private lazy var contacts: [CNContact] = {
-
-        let contactStore = CNContactStore()
-
-        guard let containers = try? contactStore.containersMatchingPredicate(nil) else {
-            println("Error fetching containers")
-            return []
-        }
-
-        let keysToFetch = [
-            CNContactFormatter.descriptorForRequiredKeysForStyle(.FullName),
-            CNContactPhoneNumbersKey,
-        ]
-
-        var results: [CNContact] = []
-
-        containers.forEach({
-
-            let fetchPredicate = CNContact.predicateForContactsInContainerWithIdentifier($0.identifier)
-
-            do {
-                let containerResults = try contactStore.unifiedContactsMatchingPredicate(fetchPredicate, keysToFetch: keysToFetch)
-                results.appendContentsOf(containerResults)
-
-            } catch {
-                println("Error fetching results for container")
-            }
-        })
-
-        return results
-    }()
-
     private var discoveredUsers = [DiscoveredUser]() {
         didSet {
             if discoveredUsers.count > 0 {
                 updateFriendsTableView()
 
-                NSNotificationCenter.defaultCenter().postNotificationName(Notification.NewFriends, object: nil)
+                NSNotificationCenter.defaultCenter().postNotificationName(YepConfig.Notification.newFriendsInContacts, object: nil)
 
             } else {
-                friendsTableView.tableFooterView = InfoView(NSLocalizedString("No more new friends.", comment: ""))
+                friendsTableView.tableFooterView = InfoView(String.trans_promptNoNewFriends)
             }
         }
     }
@@ -78,7 +41,7 @@ class FriendsInContactsViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Available Friends", comment: "")
+        title = String.trans_titleAvailableFriends
     }
 
     override func viewWillAppear(animated: Bool) {
@@ -91,38 +54,24 @@ class FriendsInContactsViewController: BaseViewController {
 
     func uploadContactsToMatchNewFriends() {
 
-        var uploadContacts = [UploadContact]()
-
-        for contact in contacts {
-
-            guard let compositeName = CNContactFormatter.stringFromContact(contact, style: .FullName) else {
-                continue
-            }
-
-            let phoneNumbers = contact.phoneNumbers
-            for phoneNumber in phoneNumbers {
-                let number = (phoneNumber.value as! CNPhoneNumber).stringValue
-                let uploadContact: UploadContact = ["name": compositeName , "number": number]
-                uploadContacts.append(uploadContact)
-            }
-        }
+        let uploadContacts = UploadContactsMaker.make()
 
         //println("uploadContacts: \(uploadContacts)")
         println("uploadContacts.count: \(uploadContacts.count)")
 
-        dispatch_async(dispatch_get_main_queue()) { [weak self] in
+        SafeDispatch.async { [weak self] in
             self?.activityIndicator.startAnimating()
         }
 
         friendsInContacts(uploadContacts, failureHandler: { (reason, errorMessage) in
             defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
-            dispatch_async(dispatch_get_main_queue()) { [weak self] in
+            SafeDispatch.async { [weak self] in
                 self?.activityIndicator.stopAnimating()
             }
 
         }, completion: { discoveredUsers in
-            dispatch_async(dispatch_get_main_queue()) { [weak self] in
+            SafeDispatch.async { [weak self] in
                 self?.discoveredUsers = discoveredUsers
 
                 self?.activityIndicator.stopAnimating()
@@ -133,7 +82,8 @@ class FriendsInContactsViewController: BaseViewController {
     // MARK: Actions
 
     private func updateFriendsTableView() {
-        friendsTableView.reloadSections(NSIndexSet(index: 0), withRowAnimation: UITableViewRowAnimation.Automatic)
+
+        friendsTableView.reloadData()
     }
 
     // MARK: - Navigation
@@ -141,19 +91,15 @@ class FriendsInContactsViewController: BaseViewController {
     override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
 
         if segue.identifier == "showProfile" {
-            if let indexPath = sender as? NSIndexPath {
-                let discoveredUser = discoveredUsers[indexPath.row]
-
-                let vc = segue.destinationViewController as! ProfileViewController
-
-                if discoveredUser.id != YepUserDefaults.userID.value {
-                    vc.profileUser = ProfileUser.DiscoveredUserType(discoveredUser)
-                }
-
-                vc.setBackButtonWithTitle()
-
-                vc.hidesBottomBarWhenPushed = true
+            guard let indexPath = sender as? NSIndexPath else {
+                println("showProfile no indexPath!")
+                return
             }
+
+            let vc = segue.destinationViewController as! ProfileViewController
+
+            let discoveredUser = discoveredUsers[indexPath.row]
+            vc.prepare(with: discoveredUser)
         }
     }
 }
@@ -167,7 +113,8 @@ extension FriendsInContactsViewController: UITableViewDataSource, UITableViewDel
     }
 
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier(cellIdentifier) as! ContactsCell
+
+        let cell: ContactsCell = tableView.dequeueReusableCell()
 
         let discoveredUser = discoveredUsers[indexPath.row]
 

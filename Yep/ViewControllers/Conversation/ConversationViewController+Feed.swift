@@ -7,11 +7,12 @@
 //
 
 import UIKit
+import YepKit
 import RealmSwift
 
 extension ConversationViewController {
 
-    func prepareConversationForFeed(feed: DiscoveredFeed, inRealm realm: Realm) -> Conversation? {
+    func prepareConversation(for feed: DiscoveredFeed, in realm: Realm) -> Conversation? {
 
         let groupID = feed.groupID
         var group = groupWithGroupID(groupID, inRealm: realm)
@@ -46,12 +47,6 @@ extension ConversationViewController {
         guard let feedConversation = feedGroup.conversation else {
             return nil
         }
-
-        /*
-        if let group = group {
-            saveFeedWithFeedDataWithoutFullGroup(feed, group: group, inRealm: realm)
-        }
-        */
 
         if let group = group {
             saveFeedWithDiscoveredFeed(feed, group: group, inRealm: realm)

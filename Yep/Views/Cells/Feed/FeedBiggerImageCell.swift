@@ -7,89 +7,73 @@
 //
 
 import UIKit
+import YepKit
+import YepPreview
+import AsyncDisplayKit
 
 class FeedBiggerImageCell: FeedBasicCell {
-
-    var tapMediaAction: FeedTapMediaAction?
-
-    lazy var biggerImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .ScaleAspectFill
-        imageView.clipsToBounds = true
-        imageView.frame = CGRect(origin: CGPoint(x: 65, y: 0), size: YepConfig.FeedBiggerImageCell.imageSize)
-        imageView.layer.borderColor = UIColor.yepBorderColor().CGColor
-        imageView.layer.borderWidth = 1.0 / UIScreen.mainScreen().scale
-
-        imageView.userInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(FeedBiggerImageCell.tap(_:)))
-        imageView.addGestureRecognizer(tap)
-
-        return imageView
-    }()
 
     override class func heightOfFeed(feed: DiscoveredFeed) -> CGFloat {
 
         let height = super.heightOfFeed(feed) + YepConfig.FeedBiggerImageCell.imageSize.height + 15
-
         return ceil(height)
     }
-    
+
+    var tapImagesAction: FeedTapImagesAction?
+
+    private func createImageNode() -> ASImageNode {
+
+        let node = ASImageNode()
+        node.frame = CGRect(origin: CGPointZero, size: YepConfig.FeedBiggerImageCell.imageSize)
+        node.contentMode = .ScaleAspectFill
+        node.backgroundColor = YepConfig.FeedMedia.backgroundColor
+        node.borderWidth = 1
+        node.borderColor = UIColor.yepBorderColor().CGColor
+
+        node.userInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(FeedBiggerImageCell.tap(_:)))
+        node.view.addGestureRecognizer(tap)
+
+        return node
+    }
+
+    private lazy var imageNode: ASImageNode = {
+        return self.createImageNode()
+    }()
+
     override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
 
-        contentView.addSubview(biggerImageView)
+        contentView.addSubview(imageNode.view)
     }
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-
     override func prepareForReuse() {
         super.prepareForReuse()
 
-        biggerImageView.image = nil
+        imageNode.image = nil
     }
 
-    override func configureWithFeed(feed: DiscoveredFeed, layoutCache: FeedCellLayout.Cache, needShowSkill: Bool) {
+    override func configureWithFeed(feed: DiscoveredFeed, layout: FeedCellLayout, needShowSkill: Bool) {
 
-        var _newLayout: FeedCellLayout?
-        super.configureWithFeed(feed, layoutCache: (layout: layoutCache.layout, update: { newLayout in
-            _newLayout = newLayout
-        }), needShowSkill: needShowSkill)
-
-        if let biggerImageLayout = layoutCache.layout?.biggerImageLayout {
-            biggerImageView.frame = biggerImageLayout.biggerImageViewFrame
-
-        } else {
-            biggerImageView.frame.origin.y = messageTextView.frame.origin.y + messageTextView.frame.height + 15
-        }
+        super.configureWithFeed(feed, layout: layout, needShowSkill: needShowSkill)
 
         if let onlyAttachment = feed.imageAttachments?.first {
 
             if onlyAttachment.isTemporary {
-                biggerImageView.image = onlyAttachment.image
+                imageNode.image = onlyAttachment.image
 
             } else {
-                biggerImageView.yep_showActivityIndicatorWhenLoading = true
-                biggerImageView.yep_setImageOfAttachment(onlyAttachment, withSize: YepConfig.FeedBiggerImageCell.imageSize)
+                imageNode.yep_showActivityIndicatorWhenLoading = true
+                imageNode.yep_setImageOfAttachment(onlyAttachment, withSize: YepConfig.FeedBiggerImageCell.imageSize)
             }
         }
 
-        if layoutCache.layout == nil {
-
-            let biggerImageLayout = FeedCellLayout.BiggerImageLayout(biggerImageViewFrame: biggerImageView.frame)
-            _newLayout?.biggerImageLayout = biggerImageLayout
-
-            if let newLayout = _newLayout {
-                layoutCache.update(layout: newLayout)
-            }
-        }
+        let biggerImageLayout = layout.biggerImageLayout!
+        imageNode.frame = biggerImageLayout.biggerImageViewFrame
     }
 
     @objc private func tap(sender: UITapGestureRecognizer) {
@@ -99,8 +83,15 @@ class FeedBiggerImageCell: FeedBasicCell {
         }
 
         if let attachments = feed?.imageAttachments {
-            tapMediaAction?(transitionView: biggerImageView, image: biggerImageView.image, attachments: attachments, index: 0)
+            tapImagesAction?(transitionReferences: [transitionReference], attachments: attachments, image: imageNode.image, index: 0)
         }
+    }
+}
+
+extension FeedBiggerImageCell: Previewable {
+
+    var transitionReference: Reference {
+        return Reference(view: imageNode.view, image: imageNode.image)
     }
 }
 

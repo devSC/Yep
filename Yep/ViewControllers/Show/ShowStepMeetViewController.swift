@@ -8,7 +8,7 @@
 
 import UIKit
 
-class ShowStepMeetViewController: ShowStepViewController {
+final class ShowStepMeetViewController: ShowStepViewController {
 
     @IBOutlet private weak var yellowTriangle: UIImageView!
     @IBOutlet private weak var greenTriangle: UIImageView!
@@ -17,8 +17,8 @@ class ShowStepMeetViewController: ShowStepViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        titleLabel.text = NSLocalizedString("Meet", comment: "")
-        subTitleLabel.text = NSLocalizedString("Build world together", comment: "")
+        titleLabel.text = String.trans_showMeet
+        subTitleLabel.text = String.trans_subtitleBuildWorldTogether
     }
 
     override func viewDidAppear(animated: Bool) {

@@ -7,162 +7,132 @@
 //
 
 import UIKit
+import YepKit
+import YepPreview
+import AsyncDisplayKit
 
-class FeedNormalImagesCell: FeedBasicCell {
-
-    var tapMediaAction: FeedTapMediaAction?
-
-    private func createImageViewWithFrame(frame: CGRect) -> UIImageView {
-        let imageView = UIImageView()
-        imageView.contentMode = .ScaleAspectFill
-        imageView.clipsToBounds = true
-        imageView.frame = CGRect(origin: CGPoint(x: 65, y: 0), size: YepConfig.FeedNormalImagesCell.imageSize)
-        imageView.frame = frame
-        imageView.layer.borderColor = UIColor.yepBorderColor().CGColor
-        imageView.layer.borderWidth = 1.0 / UIScreen.mainScreen().scale
-
-        imageView.userInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(FeedNormalImagesCell.tap(_:)))
-        imageView.addGestureRecognizer(tap)
-
-        return imageView
-    }
-
-    lazy var imageView1: UIImageView = {
-        let x = 65
-        let frame = CGRect(origin: CGPoint(x: x, y: 0), size: YepConfig.FeedNormalImagesCell.imageSize)
-        let imageView = self.createImageViewWithFrame(frame)
-
-        return imageView
-    }()
-
-    lazy var imageView2: UIImageView = {
-        let x = 65 + (YepConfig.FeedNormalImagesCell.imageSize.width + 5)
-        let frame = CGRect(origin: CGPoint(x: x, y: 0), size: YepConfig.FeedNormalImagesCell.imageSize)
-        let imageView = self.createImageViewWithFrame(frame)
-
-        return imageView
-    }()
-
-    lazy var imageView3: UIImageView = {
-        let x = 65 + (YepConfig.FeedNormalImagesCell.imageSize.width + 5) * 2
-        let frame = CGRect(origin: CGPoint(x: x, y: 0), size: YepConfig.FeedNormalImagesCell.imageSize)
-        let imageView = self.createImageViewWithFrame(frame)
-
-        return imageView
-    }()
-
-    lazy var imageView4: UIImageView = {
-        let x = 65 + (YepConfig.FeedNormalImagesCell.imageSize.width + 5) * 3
-        let frame = CGRect(origin: CGPoint(x: x, y: 0), size: YepConfig.FeedNormalImagesCell.imageSize)
-        let imageView = self.createImageViewWithFrame(frame)
-
-        return imageView
-    }()
+final class FeedNormalImagesCell: FeedBasicCell {
 
     override class func heightOfFeed(feed: DiscoveredFeed) -> CGFloat {
 
         let height = super.heightOfFeed(feed) + YepConfig.FeedNormalImagesCell.imageSize.height + 15
-
         return ceil(height)
     }
-    
-    var imageViews: [UIImageView] = []
+
+    var tapImagesAction: FeedTapImagesAction?
+
+    private func createImageNode() -> ASImageNode {
+
+        let node = ASImageNode()
+        node.frame = CGRect(origin: CGPointZero, size: YepConfig.FeedNormalImagesCell.imageSize)
+        node.contentMode = .ScaleAspectFill
+        node.backgroundColor = YepConfig.FeedMedia.backgroundColor
+        node.borderWidth = 1
+        node.borderColor = UIColor.yepBorderColor().CGColor
+
+        node.userInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(FeedNormalImagesCell.tap(_:)))
+        node.view.addGestureRecognizer(tap)
+
+        return node
+    }
+
+    private lazy var imageNode1: ASImageNode = {
+        return self.createImageNode()
+    }()
+
+    private lazy var imageNode2: ASImageNode = {
+        return self.createImageNode()
+    }()
+
+    private lazy var imageNode3: ASImageNode = {
+        return self.createImageNode()
+    }()
+
+    private lazy var imageNode4: ASImageNode = {
+        return self.createImageNode()
+    }()
+
+    private var imageNodes: [ASImageNode] = []
+
+    private let needAllImageNodes: Bool = FeedsViewController.feedNormalImagesCountThreshold == 4
 
     override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
 
-        contentView.addSubview(imageView1)
-        contentView.addSubview(imageView2)
-        contentView.addSubview(imageView3)
-        contentView.addSubview(imageView4)
+        if needAllImageNodes {
+            imageNodes = [imageNode1, imageNode2, imageNode3, imageNode4]
+        } else {
+            imageNodes = [imageNode1, imageNode2, imageNode3]
+        }
 
-        imageViews = [imageView1, imageView2, imageView3, imageView4]
+        imageNodes.forEach({
+            contentView.addSubview($0.view)
+        })
     }
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
-    }
-
     override func prepareForReuse() {
         super.prepareForReuse()
 
-        imageView1.image = nil
-        imageView2.image = nil
-        imageView3.image = nil
-        imageView4.image = nil
+        imageNodes.forEach({ $0.image = nil })
     }
 
-    override func configureWithFeed(feed: DiscoveredFeed, layoutCache: FeedCellLayout.Cache, needShowSkill: Bool) {
+    override func configureWithFeed(feed: DiscoveredFeed, layout: FeedCellLayout, needShowSkill: Bool) {
 
-        var _newLayout: FeedCellLayout?
-        super.configureWithFeed(feed, layoutCache: (layout: layoutCache.layout, update: { newLayout in
-            _newLayout = newLayout
-        }), needShowSkill: needShowSkill)
-
-        if let normalImagesLayout = layoutCache.layout?.normalImagesLayout {
-            imageView1.frame = normalImagesLayout.imageView1Frame
-            imageView2.frame = normalImagesLayout.imageView2Frame
-            imageView3.frame = normalImagesLayout.imageView3Frame
-            imageView4.frame = normalImagesLayout.imageView4Frame
-
-        } else {
-            imageViews.forEach({
-                $0.frame.origin.y = messageTextView.frame.origin.y + messageTextView.frame.height + 15
-            })
-        }
+        super.configureWithFeed(feed, layout: layout, needShowSkill: needShowSkill)
 
         if let attachments = feed.imageAttachments {
-
-            for i in 0..<imageViews.count {
-
+            for i in 0..<imageNodes.count {
                 if let attachment = attachments[safe: i] {
-
                     if attachment.isTemporary {
-                        imageViews[i].image = attachment.image
+                        imageNodes[i].image = attachment.image
 
                     } else {
-                        imageViews[i].yep_showActivityIndicatorWhenLoading = true
-                        imageViews[i].yep_setImageOfAttachment(attachment, withSize: YepConfig.FeedNormalImagesCell.imageSize)
+                        imageNodes[i].yep_showActivityIndicatorWhenLoading = true
+                        imageNodes[i].yep_setImageOfAttachment(attachment, withSize: YepConfig.FeedNormalImagesCell.imageSize)
                     }
 
-                    imageViews[i].hidden = false
+                    imageNodes[i].hidden = false
 
                 } else {
-                    imageViews[i].hidden = true
+                    imageNodes[i].hidden = true
                 }
             }
         }
 
-        if layoutCache.layout == nil {
-
-            let normalImagesLayout = FeedCellLayout.NormalImagesLayout(imageView1Frame: imageView1.frame, imageView2Frame: imageView2.frame, imageView3Frame: imageView3.frame, imageView4Frame: imageView4.frame)
-            _newLayout?.normalImagesLayout = normalImagesLayout
-
-            if let newLayout = _newLayout {
-                layoutCache.update(layout: newLayout)
-            }
+        let normalImagesLayout = layout.normalImagesLayout!
+        imageNode1.frame = normalImagesLayout.imageView1Frame
+        imageNode2.frame = normalImagesLayout.imageView2Frame
+        imageNode3.frame = normalImagesLayout.imageView3Frame
+        if needAllImageNodes {
+            imageNode4.frame = normalImagesLayout.imageView4Frame
         }
     }
 
     @objc private func tap(sender: UITapGestureRecognizer) {
 
-        guard let firstAttachment = feed?.imageAttachments?.first where !firstAttachment.isTemporary else {
+        guard let attachments = feed?.imageAttachments else {
             return
         }
-        
-        if let imageView = sender.view as? UIImageView, index = imageViews.indexOf(imageView) {
 
-            if let attachments = feed?.imageAttachments {
-                tapMediaAction?(transitionView: imageView, image: imageView.image, attachments: attachments, index: index)
-            }
+        guard let firstAttachment = attachments.first where !firstAttachment.isTemporary else {
+            return
         }
+
+        let views = imageNodes.map({ $0.view })
+        guard let view = sender.view, index = views.indexOf(view) else {
+            return
+        }
+
+        let transitionReferences: [Reference?] = imageNodes.map({
+            Reference(view: $0.view, image: $0.image)
+        })
+        let image = imageNodes[index].image
+        tapImagesAction?(transitionReferences: transitionReferences, attachments: attachments, image: image, index: index)
     }
 }
 

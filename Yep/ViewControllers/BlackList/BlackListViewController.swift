@@ -7,19 +7,28 @@
 //
 
 import UIKit
+import YepKit
 import RealmSwift
 
-class BlackListViewController: BaseViewController {
+final class BlackListViewController: BaseViewController {
 
-    @IBOutlet private weak var blockedUsersTableView: UITableView!
+    @IBOutlet private weak var blockedUsersTableView: UITableView! {
+        didSet {
+            blockedUsersTableView.separatorColor = UIColor.yepCellSeparatorColor()
+            blockedUsersTableView.separatorInset = YepConfig.ContactsCell.separatorInset
+
+            blockedUsersTableView.rowHeight = 80
+            blockedUsersTableView.tableFooterView = UIView()
+
+            blockedUsersTableView.registerNibOf(ContactsCell)
+        }
+    }
     @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
 
-    private let cellIdentifier = "ContactsCell"
-
-    private var blockedUsers = [DiscoveredUser]() {
+    private var blockedUsers: [DiscoveredUser] = [] {
         willSet {
             if newValue.count == 0 {
-                blockedUsersTableView.tableFooterView = InfoView(NSLocalizedString("No blocked users.", comment: ""))
+                blockedUsersTableView.tableFooterView = InfoView(String.trans_promptNoBlockedUsers)
             }
         }
     }
@@ -27,27 +36,20 @@ class BlackListViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Blocked Users", comment: "")
-
-        blockedUsersTableView.separatorColor = UIColor.yepCellSeparatorColor()
-        blockedUsersTableView.separatorInset = YepConfig.ContactsCell.separatorInset
-
-        blockedUsersTableView.registerNib(UINib(nibName: cellIdentifier, bundle: nil), forCellReuseIdentifier: cellIdentifier)
-        blockedUsersTableView.rowHeight = 80
-        blockedUsersTableView.tableFooterView = UIView()
-
+        title = String.trans_titleBlockedUsers
 
         activityIndicator.startAnimating()
 
-        blockedUsersByMe(failureHandler: { [weak self] reason, errorMessage in
-            dispatch_async(dispatch_get_main_queue()) {
+        blockedUsersByMe(failureHandler: { (reason, errorMessage) in
+            SafeDispatch.async { [weak self] in
                 self?.activityIndicator.stopAnimating()
             }
 
-            YepAlert.alertSorry(message: NSLocalizedString("Netword Error: Faild to get blocked users!", comment: ""), inViewController: self)
+            let message = errorMessage ?? "Failed to get blocked users!"
+            YepAlert.alertSorry(message: message, inViewController: self)
 
         }, completion: { blockedUsers in
-            dispatch_async(dispatch_get_main_queue()) { [weak self] in
+            SafeDispatch.async { [weak self] in
                 self?.activityIndicator.stopAnimating()
 
                 self?.blockedUsers = blockedUsers
@@ -69,14 +71,9 @@ class BlackListViewController: BaseViewController {
         case "showProfile":
             let vc = segue.destinationViewController as! ProfileViewController
 
-            if let discoveredUser = (sender as? Box<DiscoveredUser>)?.value {
-                vc.profileUser = .DiscoveredUserType(discoveredUser)
-            }
+            let discoveredUser = (sender as! Box<DiscoveredUser>).value
+            vc.prepare(with: discoveredUser)
 
-            vc.hidesBottomBarWhenPushed = true
-
-            vc.setBackButtonWithTitle()
-            
         default:
             break
         }
@@ -94,12 +91,11 @@ extension BlackListViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier(cellIdentifier) as! ContactsCell
 
+        let cell: ContactsCell = tableView.dequeueReusableCell()
         cell.selectionStyle = .None
 
         let discoveredUser = blockedUsers[indexPath.row]
-
         cell.configureWithDiscoveredUser(discoveredUser)
 
         return cell
@@ -130,7 +126,7 @@ extension BlackListViewController: UITableViewDataSource, UITableViewDelegate {
             unblockUserWithUserID(discoveredUser.id, failureHandler: nil, completion: { success in
                 println("unblockUserWithUserID \(success)")
 
-                dispatch_async(dispatch_get_main_queue()) { [weak self] in
+                SafeDispatch.async { [weak self] in
 
                     guard let realm = try? Realm() else {
                         return

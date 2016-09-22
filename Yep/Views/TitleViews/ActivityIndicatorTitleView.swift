@@ -8,7 +8,7 @@
 
 import UIKit
 
-class ActivityIndicatorTitleView: UIView {
+final class ActivityIndicatorTitleView: UIView {
 
     enum State {
         case Normal
@@ -62,7 +62,7 @@ class ActivityIndicatorTitleView: UIView {
 
             self.singleTitleLabel = label
 
-            let viewsDictionary = [
+            let viewsDictionary: [String: AnyObject] = [
                 "label": label,
             ]
 
@@ -90,7 +90,7 @@ class ActivityIndicatorTitleView: UIView {
             helperView.addSubview(activityIndicator)
 
             let label = UILabel()
-            label.text = NSLocalizedString("Fetching", comment: "")
+            label.text = String.trans_promptFetching
             label.textColor = UIColor.yepNavgationBarTitleColor()
 
             label.translatesAutoresizingMaskIntoConstraints = false
@@ -104,7 +104,7 @@ class ActivityIndicatorTitleView: UIView {
 
             NSLayoutConstraint.activateConstraints([helperViewCenterX, helperViewCenterY])
 
-            let viewsDictionary = [
+            let viewsDictionary: [String: AnyObject] = [
                 "activityIndicator": activityIndicator,
                 "label": label,
             ]

@@ -7,15 +7,16 @@
 //
 
 import UIKit
+import YepPreview
 import Ruler
 
-class FeedMediaContainerView: UIView {
+final class FeedMediaContainerView: UIView {
 
-    var tapMediaAction: ((mediaImageView: UIImageView) -> Void)?
+    var tapMediaAction: ((transitionReference: Reference) -> Void)?
 
     lazy var backgroundImageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.image = UIImage(named: "feed_container_background")
+        imageView.image = UIImage.yep_feedContainerBackground
         return imageView
     }()
 
@@ -60,7 +61,7 @@ class FeedMediaContainerView: UIView {
         horizontalLineView.translatesAutoresizingMaskIntoConstraints = false
         linkContainerView.translatesAutoresizingMaskIntoConstraints = false
 
-        let views = [
+        let views: [String: AnyObject] = [
             "backgroundImageView": backgroundImageView,
             "mediaImageView": mediaImageView,
             "horizontalLineView": horizontalLineView,
@@ -91,7 +92,13 @@ class FeedMediaContainerView: UIView {
     }
 
     @objc private func tapMedia(sender: UITapGestureRecognizer) {
-        tapMediaAction?(mediaImageView: mediaImageView)
+        tapMediaAction?(transitionReference: transitionReference)
     }
 }
 
+extension FeedMediaContainerView: Previewable {
+
+    var transitionReference: Reference {
+        return Reference(view: mediaImageView, image: mediaImageView.image)
+    }
+}

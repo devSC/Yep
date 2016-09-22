@@ -8,7 +8,7 @@
 
 import UIKit
 
-class SearchedUserCell: UITableViewCell {
+final class SearchedUserCell: UITableViewCell {
 
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var nicknameLabel: UILabel!
@@ -19,12 +19,6 @@ class SearchedUserCell: UITableViewCell {
         super.awakeFromNib()
 
         separatorInset = YepConfig.SearchedItemCell.separatorInset
-    }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
     }
 
     override func prepareForReuse() {
@@ -42,7 +36,7 @@ class SearchedUserCell: UITableViewCell {
         avatarImageView.navi_setAvatar(userAvatar, withFadeTransitionDuration: avatarFadeTransitionDuration)
 
         if let keyword = keyword {
-            nicknameLabel.attributedText = user.nickname.yep_hightlightSearchKeyword(keyword)
+            nicknameLabel.attributedText = user.nickname.yep_hightlightSearchKeyword(keyword, baseFont: YepConfig.SearchedItemCell.nicknameFont, baseColor: YepConfig.SearchedItemCell.nicknameColor)
 
         } else {
             nicknameLabel.text = user.nickname
@@ -52,7 +46,7 @@ class SearchedUserCell: UITableViewCell {
             usernameLabel.hidden = false
 
             if let keyword = keyword {
-                usernameLabel.attributedText = mentionUsername.yep_hightlightSearchKeyword(keyword)
+                usernameLabel.attributedText = mentionUsername.yep_hightlightSearchKeyword(keyword, baseFont: YepConfig.SearchedItemCell.usernameFont, baseColor: YepConfig.SearchedItemCell.usernameColor)
 
             } else {
                 usernameLabel.text = mentionUsername
@@ -63,9 +57,10 @@ class SearchedUserCell: UITableViewCell {
         }
 
         if showTime {
-            timeLabel.text = String(format: NSLocalizedString("Last seen %@", comment: ""), NSDate(timeIntervalSince1970: user.lastSignInUnixTime).timeAgo.lowercaseString)
+            timeLabel.text = String.trans_promptLastSeenAt(user.lastSignInUnixTime)
         } else {
             timeLabel.text = nil
         }
     }
 }
+

@@ -8,8 +8,10 @@
 
 import UIKit
 import RealmSwift
+import YepKit
+import YepNetworking
 
-class DoNotDisturbPeriodViewController: UIViewController {
+final class DoNotDisturbPeriodViewController: UIViewController {
 
     var doNotDisturbPeriod = DoNotDisturbPeriod()
 
@@ -60,7 +62,7 @@ class DoNotDisturbPeriodViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Mute", comment: "")
+        title = String.trans_titleMute
 
         activeTime = .From
 
@@ -80,51 +82,51 @@ class DoNotDisturbPeriodViewController: UIViewController {
         updateMyselfWithInfo(info, failureHandler: { [weak self] (reason, errorMessage) in
             defaultFailureHandler(reason: reason, errorMessage: errorMessage)
 
-            YepAlert.alertSorry(message: NSLocalizedString("Set Do Not Disturb failed!", comment: ""), inViewController: self)
+            YepAlert.alertSorry(message: NSLocalizedString("Set Do Not Disturb Failed!", comment: ""), inViewController: self)
 
         }, completion: { _ in
 
-            dispatch_async(dispatch_get_main_queue()) {
+            SafeDispatch.async {
 
-                success()
+                defer {
+                    success()
+                }
 
                 guard let realm = try? Realm() else {
                     return
                 }
 
-                if let
-                    myUserID = YepUserDefaults.userID.value,
-                    me = userWithUserID(myUserID, inRealm: realm) {
+                if let me = meInRealm(realm) {
 
-                        var userDoNotDisturb = me.doNotDisturb
+                    var userDoNotDisturb = me.doNotDisturb
 
-                        if userDoNotDisturb == nil {
-                            let _userDoNotDisturb = UserDoNotDisturb()
-                            _userDoNotDisturb.isOn = true
+                    if userDoNotDisturb == nil {
+                        let _userDoNotDisturb = UserDoNotDisturb()
+                        _userDoNotDisturb.isOn = true
 
-                            let _ = try? realm.write {
-                                me.doNotDisturb = _userDoNotDisturb
-                            }
-
-                            userDoNotDisturb = _userDoNotDisturb
+                        let _ = try? realm.write {
+                            me.doNotDisturb = _userDoNotDisturb
                         }
 
-                        if let userDoNotDisturb = me.doNotDisturb {
-                            let _ = try? realm.write {
-                                userDoNotDisturb.fromHour = self.doNotDisturbPeriod.fromHour
-                                userDoNotDisturb.fromMinute = self.doNotDisturbPeriod.fromMinute
+                        userDoNotDisturb = _userDoNotDisturb
+                    }
 
-                                userDoNotDisturb.toHour = self.doNotDisturbPeriod.toHour
-                                userDoNotDisturb.toMinute = self.doNotDisturbPeriod.toMinute
-                            }
+                    if let userDoNotDisturb = me.doNotDisturb {
+                        let _ = try? realm.write {
+                            userDoNotDisturb.fromHour = self.doNotDisturbPeriod.fromHour
+                            userDoNotDisturb.fromMinute = self.doNotDisturbPeriod.fromMinute
+
+                            userDoNotDisturb.toHour = self.doNotDisturbPeriod.toHour
+                            userDoNotDisturb.toMinute = self.doNotDisturbPeriod.toMinute
                         }
+                    }
                 }
             }
         })
     }
 
     private func updateFromButton() {
-        fromButton.setTitle(NSLocalizedString("From", comment: "") + " " + doNotDisturbPeriod.localFromString, forState: .Normal)
+        fromButton.setTitle(String.trans_timeFrom + " " + doNotDisturbPeriod.localFromString, forState: .Normal)
     }
 
     private func updateToButton() {

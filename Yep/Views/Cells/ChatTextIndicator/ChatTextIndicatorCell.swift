@@ -7,11 +7,12 @@
 //
 
 import UIKit
+import YepKit
 
-class ChatTextIndicatorCell: UICollectionViewCell {
+final class ChatTextIndicatorCell: UICollectionViewCell {
 
     lazy var bubbleImageView: UIImageView = {
-        let imageView = UIImageView(image: UIImage(named: "skill_bubble"))
+        let imageView = UIImageView(image: UIImage.yep_skillBubble)
         imageView.tintColor = UIColor(white: 0.95, alpha: 1.0)
         imageView.tintAdjustmentMode = .Normal
         return imageView
@@ -33,7 +34,7 @@ class ChatTextIndicatorCell: UICollectionViewCell {
         recallLabel.translatesAutoresizingMaskIntoConstraints = false
 
         do {
-            let views = [
+            let views: [String: AnyObject] = [
                 "recallLabel": recallLabel,
             ]
 

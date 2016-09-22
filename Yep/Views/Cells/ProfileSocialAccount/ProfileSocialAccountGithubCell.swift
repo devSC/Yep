@@ -7,8 +7,10 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 
-class ProfileSocialAccountGithubCell: UICollectionViewCell {
+final class ProfileSocialAccountGithubCell: UICollectionViewCell {
 
     var githubWork: GithubWork? {
         didSet {
@@ -103,18 +105,7 @@ class ProfileSocialAccountGithubCell: UICollectionViewCell {
                 self.githubWork = githubWork
 
             } else {
-                var userID: String?
-
-                if let profileUser = profileUser {
-                    switch profileUser {
-                    case .DiscoveredUserType(let discoveredUser):
-                        userID = discoveredUser.id
-                    case .UserType(let user):
-                        userID = user.userID
-                    }
-                }
-
-                if let userID = userID {
+                if let userID = profileUser?.userID {
 
                     githubWorkOfUserWithUserID(userID, failureHandler: { (reason, errorMessage) -> Void in
                         defaultFailureHandler(reason: reason, errorMessage: errorMessage)
@@ -122,8 +113,8 @@ class ProfileSocialAccountGithubCell: UICollectionViewCell {
                     }, completion: { githubWork in
                         //println("githubWork: \(githubWork)")
 
-                        dispatch_async(dispatch_get_main_queue()) {
-                            self.githubWork = githubWork
+                        SafeDispatch.async { [weak self] in
+                            self?.githubWork = githubWork
 
                             completion?(githubWork)
                         }
@@ -132,5 +123,5 @@ class ProfileSocialAccountGithubCell: UICollectionViewCell {
             }
         }
     }
-
 }
+

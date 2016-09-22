@@ -8,102 +8,174 @@
 
 import UIKit
 
-class PodsHelpYepViewController: UITableViewController {
+final class PodsHelpYepViewController: UITableViewController {
 
-    private let pods: [[String: String]] = [
-        [
-            "name": "RealmSwift",
-            "URLString": "https://realm.io",
-        ],
-        [
-            "name": "MZFayeClient",
-            "URLString": "https://github.com/m1entus/MZFayeClient",
-        ],
-        [
-            "name": "Proposer",
-            "URLString": "https://github.com/nixzhu/Proposer",
-        ],
-        [
-            "name": "KeyboardMan",
-            "URLString": "https://github.com/nixzhu/KeyboardMan",
-        ],
-        [
-            "name": "Ruler",
-            "URLString": "https://github.com/nixzhu/Ruler",
-        ],
-        [
-            "name": "MonkeyKing",
-            "URLString": "https://github.com/nixzhu/MonkeyKing",
-        ],
-        [
-            "name": "Navi",
-            "URLString": "https://github.com/nixzhu/Navi",
-        ],
-        [
-            "name": "1PasswordExtension",
-            "URLString": "https://github.com/AgileBits/onepassword-app-extension",
-        ],
-        [
-            "name": "Kingfisher",
-            "URLString": "https://github.com/onevcat/Kingfisher",
-        ],
-        [
-            "name": "FXBlurView",
-            "URLString": "https://github.com/nicklockwood/FXBlurView",
-        ],
-        [
-            "name": "TPKeyboardAvoiding",
-            "URLString": "https://github.com/michaeltyson/TPKeyboardAvoiding",
-        ],
-        [
-            "name": "DeviceGuru",
-            "URLString": "https://github.com/InderKumarRathore/DeviceGuru",
-        ],
-        [
-            "name": "Alamofire",
-            "URLString": "https://github.com/Alamofire/Alamofire",
-        ],
-        [
-            "name": "pop",
-            "URLString": "https://github.com/facebook/pop",
-        ],
-    ].sort({ a, b in
-        if let
-            nameA = a["name"],
-            nameB = b["name"] {
+    struct Framework {
+        let name: String
+        let urlString: String
 
-                return nameA < nameB
+        var url: NSURL? {
+            return NSURL(string: urlString)
         }
+    }
 
-        return true
-    })
+    private let frameworks: [Framework] = [
+        Framework(
+            name: "Alamofire",
+            urlString: "https://github.com/Alamofire/Alamofire"
+        ),
+        Framework(
+            name: "AudioBot",
+            urlString: "https://github.com/nixzhu/AudioBot"
+        ),
+        Framework(
+            name: "AutoReview",
+            urlString: "https://github.com/nixzhu/AutoReview"
+        ),
+        Framework(
+            name: "DeviceGuru",
+            urlString: "https://github.com/InderKumarRathore/DeviceGuru"
+        ),
+        Framework(
+            name: "FXBlurView",
+            urlString: "https://github.com/nicklockwood/FXBlurView"
+        ),
+        Framework(
+            name: "KeyboardMan",
+            urlString: "https://github.com/nixzhu/KeyboardMan"
+        ),
+        Framework(
+            name: "KeypathObserver",
+            urlString: "https://github.com/nixzhu/KeypathObserver"
+        ),
+        Framework(
+            name: "Kingfisher",
+            urlString: "https://github.com/onevcat/Kingfisher"
+        ),
+        Framework(
+            name: "MonkeyKing",
+            urlString: "https://github.com/nixzhu/MonkeyKing"
+        ),
+        Framework(
+            name: "Navi",
+            urlString: "https://github.com/nixzhu/Navi"
+        ),
+        Framework(
+            name: "Pop",
+            urlString: "https://github.com/facebook/pop"
+        ),
+        Framework(
+            name: "Proposer",
+            urlString: "https://github.com/nixzhu/Proposer"
+        ),
+        Framework(
+            name: "ReSwift",
+            urlString: "https://github.com/ReSwift/ReSwift"
+        ),
+        Framework(
+            name: "RealmSwift",
+            urlString: "https://github.com/realm/realm-cocoa"
+        ),
+        Framework(
+            name: "Ruler",
+            urlString: "https://github.com/nixzhu/Ruler"
+        ),
+        Framework(
+            name: "RxSwift",
+            urlString: "https://github.com/ReactiveX/RxSwift"
+        ),
+        Framework(
+            name: "TPKeyboardAvoiding",
+            urlString: "https://github.com/michaeltyson/TPKeyboardAvoiding"
+        ),
+    ]
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = NSLocalizedString("Pods", comment: "")
+        title = String.trans_titleOpenSource
 
         tableView.tableFooterView = UIView()
     }
 
     // MARK: - Table view data source
 
+    enum Section: Int {
+        case Yep
+        case Frameworks
+
+        var headerTitle: String {
+            switch self {
+            case .Yep:
+                return NSLocalizedString("Yep", comment: "")
+            case .Frameworks:
+                return NSLocalizedString("Third Party", comment: "")
+            }
+        }
+    }
+
     override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
-        return 1
+
+        return 2
     }
 
     override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return pods.count
+
+        guard let section = Section(rawValue: section) else {
+            fatalError()
+        }
+
+        switch section {
+        case .Yep:
+            return 1
+        case .Frameworks:
+            return frameworks.count
+        }
+    }
+
+    override func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+
+        guard let section = Section(rawValue: section) else {
+            fatalError()
+        }
+
+        return section.headerTitle
     }
 
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("PodCell", forIndexPath: indexPath) 
 
-        let pod = pods[indexPath.row]
+        guard let section = Section(rawValue: indexPath.section) else {
+            fatalError()
+        }
 
-        cell.textLabel?.text = pod["name"]
+        switch section {
 
-        return cell
+        case .Yep:
+            let cell = tableView.dequeueReusableCellWithIdentifier("YepCell", forIndexPath: indexPath)
+            cell.textLabel?.text = NSLocalizedString("Yep on GitHub", comment: "")
+            cell.detailTextLabel?.text = NSLocalizedString("Welcome contributions!", comment: "")
+            return cell
+
+        case .Frameworks:
+            let cell = tableView.dequeueReusableCellWithIdentifier("PodCell", forIndexPath: indexPath)
+            let framework = frameworks[indexPath.row]
+            cell.textLabel?.text = framework.name
+            return cell
+        }
+    }
+
+    override func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+
+        guard let section = Section(rawValue: indexPath.section) else {
+            fatalError()
+        }
+
+        switch section {
+        case .Yep:
+            return 60
+        case .Frameworks:
+            return 44
+        }
     }
 
     override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
@@ -112,12 +184,22 @@ class PodsHelpYepViewController: UITableViewController {
             tableView.deselectRowAtIndexPath(indexPath, animated: true)
         }
 
-        let pod = pods[indexPath.row]
+        guard let section = Section(rawValue: indexPath.section) else {
+            fatalError()
+        }
 
-        if let
-            URLString = pod["URLString"],
-            URL = NSURL(string: URLString) {
+        switch section {
+
+        case .Yep:
+            if let URL = NSURL(string: "https://github.com/CatchChat/Yep") {
                 yep_openURL(URL)
+            }
+
+        case .Frameworks:
+            let framework = frameworks[indexPath.row]
+            if let url = framework.url {
+                yep_openURL(url)
+            }
         }
     }
 }

@@ -7,47 +7,24 @@
 //
 
 import UIKit
-import KeyboardMan
+import YepKit
 import RealmSwift
+import KeypathObserver
 
-class SearchConversationsViewController: SegueViewController {
-
-    var originalNavigationControllerDelegate: UINavigationControllerDelegate?
-    private var conversationsSearchTransition: ConversationsSearchTransition?
-
-    private var searchBarCancelButtonEnabledObserver: ObjectKeypathObserver?
-    @IBOutlet weak var searchBar: UISearchBar! {
-        didSet {
-            searchBar.placeholder = NSLocalizedString("Search", comment: "")
-            searchBar.setSearchFieldBackgroundImage(UIImage(named: "searchbar_textfield_background"), forState: .Normal)
-            searchBar.returnKeyType = .Done
-        }
-    }
-    @IBOutlet weak var searchBarBottomLineView: HorizontalLineView! {
-        didSet {
-            searchBarBottomLineView.lineColor = UIColor(white: 0.68, alpha: 1.0)
-        }
-    }
-    @IBOutlet weak var searchBarTopConstraint: NSLayoutConstraint!
-
-    private let headerIdentifier = "TableSectionTitleView"
-    private let searchSectionTitleCellID = "SearchSectionTitleCell"
-    private let searchedUserCellID = "SearchedUserCell"
-    private let searchedMessageCellID = "SearchedMessageCell"
-    private let searchedFeedCellID = "SearchedFeedCell"
-    private let searchMoreResultsCellID = "SearchMoreResultsCell"
+final class SearchConversationsViewController: BaseSearchViewController {
 
     @IBOutlet weak var resultsTableView: UITableView! {
         didSet {
             //resultsTableView.separatorColor = YepConfig.SearchTableView.separatorColor // not work here
             resultsTableView.backgroundColor = YepConfig.SearchTableView.backgroundColor
 
-            resultsTableView.registerClass(TableSectionTitleView.self, forHeaderFooterViewReuseIdentifier: headerIdentifier)
-            resultsTableView.registerNib(UINib(nibName: searchSectionTitleCellID, bundle: nil), forCellReuseIdentifier: searchSectionTitleCellID)
-            resultsTableView.registerNib(UINib(nibName: searchedUserCellID, bundle: nil), forCellReuseIdentifier: searchedUserCellID)
-            resultsTableView.registerNib(UINib(nibName: searchedMessageCellID, bundle: nil), forCellReuseIdentifier: searchedMessageCellID)
-            resultsTableView.registerNib(UINib(nibName: searchedFeedCellID, bundle: nil), forCellReuseIdentifier: searchedFeedCellID)
-            resultsTableView.registerNib(UINib(nibName: searchMoreResultsCellID, bundle: nil), forCellReuseIdentifier: searchMoreResultsCellID)
+            resultsTableView.registerHeaderFooterClassOf(TableSectionTitleView)
+
+            resultsTableView.registerNibOf(SearchSectionTitleCell)
+            resultsTableView.registerNibOf(SearchedUserCell)
+            resultsTableView.registerNibOf(SearchedMessageCell)
+            resultsTableView.registerNibOf(SearchedFeedCell)
+            resultsTableView.registerNibOf(SearchMoreResultsCell)
 
             resultsTableView.sectionHeaderHeight = 0
             resultsTableView.sectionFooterHeight = 0
@@ -91,9 +68,16 @@ class SearchConversationsViewController: SegueViewController {
         return filteredFeeds?.count ?? 0
     }
 
-    private var keyword: String?
-
-    private let keyboardMan = KeyboardMan()
+    private var keyword: String? {
+        didSet {
+            if keyword == nil {
+                clearSearchResults()
+            }
+            if let keyword = keyword where keyword.isEmpty {
+                clearSearchResults()
+            }
+        }
+    }
 
     private func updateForFold(fold: Bool, withCountOfItems countOfItems: Int, inSection section: Section) {
 
@@ -144,55 +128,13 @@ class SearchConversationsViewController: SegueViewController {
 
         title = NSLocalizedString("Search", comment: "")
 
+        searchBar.placeholder = NSLocalizedString("Search", comment: "")
+
         resultsTableView.separatorColor = YepConfig.SearchTableView.separatorColor
 
         realm = try! Realm()
 
-        keyboardMan.animateWhenKeyboardAppear = { [weak self] _, keyboardHeight, _ in
-            self?.resultsTableView.contentInset.bottom = keyboardHeight
-            self?.resultsTableView.scrollIndicatorInsets.bottom = keyboardHeight
-        }
-
-        keyboardMan.animateWhenKeyboardDisappear = { [weak self] _ in
-            self?.resultsTableView.contentInset.bottom = 0
-            self?.resultsTableView.scrollIndicatorInsets.bottom = 0
-        }
-
         searchBarBottomLineView.alpha = 0
-    }
-
-    private var isFirstAppear = true
-
-    override func viewWillAppear(animated: Bool) {
-        super.viewWillAppear(animated)
-
-        navigationController?.setNavigationBarHidden(true, animated: true)
-
-        if isFirstAppear {
-            delay(0.3) { [weak self] in
-                self?.searchBar.becomeFirstResponder()
-            }
-            delay(0.4) { [weak self] in
-                self?.searchBar.setShowsCancelButton(true, animated: true)
-
-                self?.searchBarCancelButtonEnabledObserver = self?.searchBar.yep_makeSureCancelButtonAlwaysEnabled()
-            }
-        }
-    }
-
-    override func viewDidAppear(animated: Bool) {
-        super.viewDidAppear(animated)
-
-        if let delegate = conversationsSearchTransition {
-            navigationController?.delegate = delegate
-        }
-
-        UIView.animateWithDuration(0.25, delay: 0.0, options: .CurveEaseInOut, animations: { [weak self] _ in
-            self?.searchBarTopConstraint.constant = 0
-            self?.view.layoutIfNeeded()
-        }, completion: nil)
-
-        isFirstAppear = false
     }
 
     // MARK: - Navigation
@@ -203,27 +145,15 @@ class SearchConversationsViewController: SegueViewController {
             return
         }
 
-        func hackNavigationDelegate() {
-            // 记录原始的 conversationsSearchTransition 以便 pop 后恢复
-            conversationsSearchTransition = navigationController?.delegate as? ConversationsSearchTransition
-
-            println("originalNavigationControllerDelegate: \(originalNavigationControllerDelegate)")
-            navigationController?.delegate = originalNavigationControllerDelegate
-        }
-
         switch identifier {
 
         case "showProfile":
             let vc = segue.destinationViewController as! ProfileViewController
 
             let user = sender as! User
-            vc.profileUser = .UserType(user)
+            vc.prepare(withUser: user)
 
-            vc.hidesBottomBarWhenPushed = true
-
-            vc.setBackButtonWithTitle()
-
-            hackNavigationDelegate()
+            prepareOriginalNavigationControllerDelegate()
 
         case "showConversation":
             let vc = segue.destinationViewController as! ConversationViewController
@@ -231,7 +161,7 @@ class SearchConversationsViewController: SegueViewController {
             vc.conversation = info["conversation"] as! Conversation
             vc.indexOfSearchedMessage = info["indexOfSearchedMessage"] as? Int
 
-            hackNavigationDelegate()
+            prepareOriginalNavigationControllerDelegate()
 
         case "showSearchedUserMessages":
             let vc = segue.destinationViewController as! SearchedUserMessagesViewController
@@ -240,7 +170,7 @@ class SearchConversationsViewController: SegueViewController {
             vc.messages = userMessages.messages
             vc.keyword = keyword
 
-            hackNavigationDelegate()
+            prepareOriginalNavigationControllerDelegate()
 
         default:
             break
@@ -255,7 +185,7 @@ class SearchConversationsViewController: SegueViewController {
     }
 
     private func updateResultsTableView(scrollsToTop scrollsToTop: Bool = false) {
-        dispatch_async(dispatch_get_main_queue()) { [weak self] in
+        SafeDispatch.async { [weak self] in
             self?.resultsTableView.reloadData()
 
             if scrollsToTop {
@@ -273,8 +203,7 @@ extension SearchConversationsViewController: UISearchBarDelegate {
 
         UIView.animateWithDuration(0.1, delay: 0.0, options: .CurveEaseInOut, animations: { [weak self] _ in
             self?.searchBarBottomLineView.alpha = 1
-        }, completion: { finished in
-        })
+        }, completion: nil)
 
         return true
     }
@@ -286,8 +215,7 @@ extension SearchConversationsViewController: UISearchBarDelegate {
 
         UIView.animateWithDuration(0.1, delay: 0.0, options: .CurveEaseInOut, animations: { [weak self] _ in
             self?.searchBarBottomLineView.alpha = 0
-        }, completion: { finished in
-        })
+        }, completion: nil)
 
         navigationController?.popViewControllerAnimated(true)
     }
@@ -296,7 +224,7 @@ extension SearchConversationsViewController: UISearchBarDelegate {
 
         cancel(searchTask)
 
-        searchTask = delay(0.5) { [weak self] in
+        searchTask = delay(YepConfig.Search.delayInterval) { [weak self] in
             if let searchText = searchBar.yep_fullSearchText {
                 self?.updateSearchResultsWithText(searchText)
             }
@@ -307,13 +235,14 @@ extension SearchConversationsViewController: UISearchBarDelegate {
 
     func searchBar(searchBar: UISearchBar, textDidChange searchText: String) {
 
-        if searchText.isEmpty {
-            self.keyword = nil
-        }
-
         cancel(searchTask)
 
-        searchTask = delay(0.5) { [weak self] in
+        if searchText.isEmpty {
+            self.keyword = nil
+            return
+        }
+
+        searchTask = delay(YepConfig.Search.delayInterval) { [weak self] in
             self?.updateSearchResultsWithText(searchText)
         }
     }
@@ -336,18 +265,16 @@ extension SearchConversationsViewController: UISearchBarDelegate {
 
         let searchText = searchText.trimming(.Whitespace)
 
-        guard !searchText.isEmpty else {
-            clearSearchResults()
-
-            return
-        }
-
         // 不要重复搜索一样的内容
         if let keyword = self.keyword where keyword == searchText {
             return
         }
 
         self.keyword = searchText
+
+        guard !searchText.isEmpty else {
+            return
+        }
 
         isMoreFriendsFold = true
         isMoreUserMessagesFold = true
@@ -367,7 +294,7 @@ extension SearchConversationsViewController: UISearchBarDelegate {
         // messages
         do {
             let filteredUserMessages: [UserMessages] = users.map({
-                let messages = $0.messages
+                let messages = $0.messages.map({ $0 })
                 let filteredMessages = filterValidMessages(messages)
                 let searchedMessages = filteredMessages
                     .filter({ $0.textContent.localizedStandardContainsString(searchText) })
@@ -461,9 +388,8 @@ extension SearchConversationsViewController: UITableViewDataSource, UITableViewD
             return nil
         }
 
-        let header = tableView.dequeueReusableHeaderFooterViewWithIdentifier(headerIdentifier) as? TableSectionTitleView
-
-        header?.titleLabel.text = nil
+        let header: TableSectionTitleView = tableView.dequeueReusableHeaderFooter()
+        header.titleLabel.text = nil
 
         return header
     }
@@ -518,15 +444,15 @@ extension SearchConversationsViewController: UITableViewDataSource, UITableViewD
 
         if indexPath.row == 0 {
 
-            let cell = tableView.dequeueReusableCellWithIdentifier(searchSectionTitleCellID) as! SearchSectionTitleCell
+            let cell: SearchSectionTitleCell = tableView.dequeueReusableCell()
 
             switch section {
             case .Friend:
-                cell.sectionTitleLabel.text = NSLocalizedString("Friends", comment: "")
+                cell.sectionTitleLabel.text = String.trans_titleFriends
             case .MessageRecord:
-                cell.sectionTitleLabel.text = NSLocalizedString("Chat Records", comment: "")
+                cell.sectionTitleLabel.text = String.trans_titleChatRecords
             case .Feed:
-                cell.sectionTitleLabel.text = NSLocalizedString("Joined Feeds", comment: "")
+                cell.sectionTitleLabel.text = String.trans_titleJoinedFeeds
             }
 
             return cell
@@ -538,28 +464,28 @@ extension SearchConversationsViewController: UITableViewDataSource, UITableViewD
 
         case .Friend:
             if itemIndex < (isMoreFriendsFold ? Section.maxNumberOfItems : countOfFilteredFriends) {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchedUserCellID) as! SearchedUserCell
+                let cell: SearchedUserCell = tableView.dequeueReusableCell()
                 return cell
             } else {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchMoreResultsCellID) as! SearchMoreResultsCell
+                let cell: SearchMoreResultsCell = tableView.dequeueReusableCell()
                 return cell
             }
 
         case .MessageRecord:
             if itemIndex < (isMoreUserMessagesFold ? Section.maxNumberOfItems : countOfFilteredUserMessages) {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchedMessageCellID) as! SearchedMessageCell
+                let cell: SearchedMessageCell = tableView.dequeueReusableCell()
                 return cell
             } else {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchMoreResultsCellID) as! SearchMoreResultsCell
+                let cell: SearchMoreResultsCell = tableView.dequeueReusableCell()
                 return cell
             }
 
         case .Feed:
             if itemIndex < (isMoreFeedsFold ? Section.maxNumberOfItems : countOfFilteredFeeds) {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchedFeedCellID) as! SearchedFeedCell
+                let cell: SearchedFeedCell = tableView.dequeueReusableCell()
                 return cell
             } else {
-                let cell = tableView.dequeueReusableCellWithIdentifier(searchMoreResultsCellID) as! SearchMoreResultsCell
+                let cell: SearchMoreResultsCell = tableView.dequeueReusableCell()
                 return cell
             }
         }

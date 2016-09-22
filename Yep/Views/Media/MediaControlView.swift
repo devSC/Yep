@@ -9,7 +9,7 @@
 import UIKit
 
 //@IBDesignable
-class MediaControlView: UIView {
+final class MediaControlView: UIView {
 
     enum Type {
         case Image
@@ -28,7 +28,7 @@ class MediaControlView: UIView {
             case .Image:
                 timeLabel.hidden = true
                 playButton.hidden = true
-                shareButton.setImage(UIImage(named: "icon_more_image"), forState: .Normal)
+                shareButton.setImage(UIImage.yep_iconMoreImage, forState: .Normal)
 
             case .Video:
                 timeLabel.hidden = false
@@ -46,9 +46,9 @@ class MediaControlView: UIView {
         didSet {
             switch playState {
             case .Playing:
-                playButton.setImage(UIImage(named: "icon_pause"), forState: .Normal)
+                playButton.setImage(UIImage.yep_iconPause, forState: .Normal)
             case .Pause:
-                playButton.setImage(UIImage(named: "icon_play"), forState: .Normal)
+                playButton.setImage(UIImage.yep_iconPlay, forState: .Normal)
             }
         }
     }
@@ -69,7 +69,7 @@ class MediaControlView: UIView {
 
     lazy var playButton: UIButton = {
         let button = UIButton()
-        button.setImage(UIImage(named: "icon_play"), forState: .Normal)
+        button.setImage(UIImage.yep_iconPlay, forState: .Normal)
         button.tintColor = UIColor.whiteColor()
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
         button.addTarget(self, action: #selector(MediaControlView.playOrPause), forControlEvents: UIControlEvents.TouchUpInside)
@@ -78,7 +78,7 @@ class MediaControlView: UIView {
 
     lazy var shareButton: UIButton = {
         let button = UIButton()
-        button.setImage(UIImage(named: "icon_more"), forState: .Normal)
+        button.setImage(UIImage.yep_iconMore, forState: .Normal)
         button.tintColor = UIColor.whiteColor()
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 30, bottom: 0, right: 30)
         button.addTarget(self, action: #selector(MediaControlView.share), forControlEvents: UIControlEvents.TouchUpInside)
@@ -102,7 +102,7 @@ class MediaControlView: UIView {
         playButton.translatesAutoresizingMaskIntoConstraints = false
         shareButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let viewsDictionary = [
+        let viewsDictionary: [String: AnyObject] = [
             "timeLable": timeLabel,
             "playButton": playButton,
             "shareButton": shareButton,

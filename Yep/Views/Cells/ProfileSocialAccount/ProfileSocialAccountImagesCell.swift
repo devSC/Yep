@@ -7,9 +7,11 @@
 //
 
 import UIKit
+import YepKit
+import YepNetworking
 import Kingfisher
 
-class ProfileSocialAccountImagesCell: UICollectionViewCell {
+final class ProfileSocialAccountImagesCell: UICollectionViewCell {
     
     var socialAccount: SocialAccount?
 
@@ -169,18 +171,7 @@ class ProfileSocialAccountImagesCell: UICollectionViewCell {
                 self.socialWork = socialWork
 
             } else {
-                var userID: String?
-
-                if let profileUser = profileUser {
-                    switch profileUser {
-                    case .DiscoveredUserType(let discoveredUser):
-                        userID = discoveredUser.id
-                    case .UserType(let user):
-                        userID = user.userID
-                    }
-                }
-
-                if let userID = userID {
+                if let userID = profileUser?.userID {
 
                     switch socialAccount {
 
@@ -191,10 +182,9 @@ class ProfileSocialAccountImagesCell: UICollectionViewCell {
                         }, completion: { dribbbleWork in
                             //println("dribbbleWork: \(dribbbleWork.shots.count)")
 
-                            dispatch_async(dispatch_get_main_queue()) {
+                            SafeDispatch.async { [weak self] in
                                 let socialWork = SocialWork.Dribbble(dribbbleWork)
-
-                                self.socialWork = socialWork
+                                self?.socialWork = socialWork
 
                                 completion?(socialWork)
                             }
@@ -207,10 +197,9 @@ class ProfileSocialAccountImagesCell: UICollectionViewCell {
                         }, completion: { instagramWork in
                             //println("instagramWork: \(instagramWork.medias.count)")
 
-                            dispatch_async(dispatch_get_main_queue()) {
+                            SafeDispatch.async { [weak self] in
                                 let socialWork = SocialWork.Instagram(instagramWork)
-
-                                self.socialWork = socialWork
+                                self?.socialWork = socialWork
 
                                 completion?(socialWork)
                             }
@@ -224,3 +213,4 @@ class ProfileSocialAccountImagesCell: UICollectionViewCell {
         }
     }
 }
+

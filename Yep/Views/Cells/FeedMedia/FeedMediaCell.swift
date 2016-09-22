@@ -7,8 +7,10 @@
 //
 
 import UIKit
+import YepKit
+import YepPreview
 
-class FeedMediaCell: UICollectionViewCell {
+final class FeedMediaCell: UICollectionViewCell {
 
     @IBOutlet weak var imageView: UIImageView!
     @IBOutlet weak var deleteImageView: UIImageView!
@@ -56,7 +58,7 @@ class FeedMediaCell: UICollectionViewCell {
             imageView.image = attachment.image
 
         } else {
-            let size = bigger ? feedAttachmentBiggerImageSize : feedAttachmentImageSize
+            let size = bigger ? YepConfig.FeedBiggerImageCell.imageSize : YepConfig.FeedNormalImagesCell.imageSize
 
             imageView.yep_showActivityIndicatorWhenLoading = true
             imageView.yep_setImageOfAttachment(attachment, withSize: size)
@@ -65,3 +67,11 @@ class FeedMediaCell: UICollectionViewCell {
         deleteImageView.hidden = true
     }
 }
+
+extension FeedMediaCell: Previewable {
+    
+    var transitionReference: Reference {
+        return Reference(view: imageView, image: imageView.image)
+    }
+}
+

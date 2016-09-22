@@ -8,10 +8,11 @@
 
 import UIKit
 import Photos
+import YepKit
 
 // @note use this model to store the album's 'result, 'count, 'name, 'startDate to avoid request and reserve too much times
 
-class Album: NSObject {
+final class Album: NSObject {
     var results: PHFetchResult?
     var count = 0
     var name: String?
@@ -21,7 +22,7 @@ class Album: NSObject {
 
 private let defaultAlbumIdentifier = "com.Yep.photoPicker"
 
-class AlbumListController: UITableViewController {
+final class AlbumListController: UITableViewController {
 
     var pickedImageSet = Set<PHAsset>()
     var pickedImages = [PHAsset]()
@@ -29,36 +30,32 @@ class AlbumListController: UITableViewController {
 
     var imageLimit = 0
     
-    let albumlistCellIdentifier = "AlbumListCell"
-    
     var assetsCollection: [Album]?
-    
+
     lazy var pickPhotosVC: PickPhotosViewController = {
-        let vc = UIStoryboard(name: "PickPhotos", bundle: nil).instantiateViewControllerWithIdentifier("PickPhotosViewController") as! PickPhotosViewController
-        return vc
+        return UIStoryboard.Scene.pickPhotos
     }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let cancelButton = UIBarButtonItem(title: NSLocalizedString("Cancel", comment: ""), style: .Plain, target: self, action: #selector(AlbumListController.cancel(_:)))
+        let cancelButton = UIBarButtonItem(title: String.trans_cancel, style: .Plain, target: self, action: #selector(AlbumListController.cancel(_:)))
         navigationItem.rightBarButtonItem = cancelButton
         navigationItem.hidesBackButton = true
         
-        tableView.registerNib(UINib(nibName: albumlistCellIdentifier, bundle: nil), forCellReuseIdentifier: albumlistCellIdentifier)
+        tableView.registerNibOf(AlbumListCell)
+
         tableView.tableFooterView = UIView()
         
         assetsCollection = fetchAlbumList()
-        
     }
-    
-   
+
     override func viewDidAppear(animated: Bool) {
         super.viewDidAppear(animated)
+
         navigationController?.interactivePopGestureRecognizer?.enabled = true
     }
-    
-    
+
     @objc private func cancel(sender: UIBarButtonItem) {
         
         if let vcStack = navigationController?.viewControllers {
@@ -75,12 +72,12 @@ class AlbumListController: UITableViewController {
         }
     }
     
-    func fetchAlbumIdentifier() -> String? {
+    private func fetchAlbumIdentifier() -> String? {
         let string = NSUserDefaults.standardUserDefaults().objectForKey(defaultAlbumIdentifier) as? String
         return string
     }
     
-    func fetchAlbum() -> Album {
+    private func fetchAlbum() -> Album {
         let album = Album()
         let identifier = fetchAlbumIdentifier()
         guard identifier != nil else {
@@ -106,7 +103,7 @@ class AlbumListController: UITableViewController {
         return album
     }
     
-    func fetchAlbumList() -> [Album]? {
+    private func fetchAlbumList() -> [Album]? {
         let userAlbumsOptions = PHFetchOptions()
         userAlbumsOptions.predicate = NSPredicate(format: "estimatedAssetCount > 0")
         userAlbumsOptions.sortDescriptors = [NSSortDescriptor(key: "startDate", ascending: true)]
@@ -124,9 +121,11 @@ class AlbumListController: UITableViewController {
         
         for (_, result) in results.enumerate() {
             result.enumerateObjectsUsingBlock {  (collection, idx, stop) in
-                if let album = collection as? PHAssetCollection {
-                    let assetResults = PHAsset.fetchAssetsInAssetCollection(album, options: options)
+                if let album = collection as? PHAssetCollection{
+                    guard  album.localizedTitle !=  NSLocalizedString("Recently Deleted", comment: "") else { return }
                     
+                    let assetResults = PHAsset.fetchAssetsInAssetCollection(album, options: options)
+                   
                     var count = 0
                     switch album.assetCollectionType {
                     case .Album:
@@ -152,10 +151,11 @@ class AlbumListController: UITableViewController {
             }
 
         }
+
         return list
     }
 
-    func fetchImageWithAsset(asset: PHAsset?, targetSize: CGSize, imageResultHandler: (image: UIImage?)->Void) -> PHImageRequestID? {
+    private func fetchImageWithAsset(asset: PHAsset?, targetSize: CGSize, imageResultHandler: (image: UIImage?)->Void) -> PHImageRequestID? {
         guard let asset = asset else {
             return nil
         }
@@ -190,13 +190,20 @@ class AlbumListController: UITableViewController {
     }
     
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier(albumlistCellIdentifier, forIndexPath: indexPath) as! AlbumListCell
+        let cell: AlbumListCell = tableView.dequeueReusableCell()
         if let album = assetsCollection?[indexPath.row] {
             cell.countLabel.text = "(\(album.count))"
-            cell.titleLabel.text = album.name 
-            fetchImageWithAsset(album.results?.lastObject as? PHAsset, targetSize: CGSizeMake(60, 60), imageResultHandler: { (image) in
-                cell.posterImageView.image = image
-            })
+            cell.titleLabel.text = album.name
+
+            SafeDispatch.async(onQueue: dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)) { [weak self] in
+
+                self?.fetchImageWithAsset(album.results?.lastObject as? PHAsset, targetSize: CGSizeMake(60, 60), imageResultHandler: { (image) in
+
+                    SafeDispatch.async {
+                        cell.posterImageView.image = image
+                    }
+                })
+            }
         }
         
         return cell

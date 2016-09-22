@@ -8,7 +8,7 @@
 
 import Foundation
 
-class FeedsMoreViewManager {
+final class FeedsMoreViewManager {
 
     var toggleBlockFeedsAction: (() -> Void)?
 
@@ -22,11 +22,14 @@ class FeedsMoreViewManager {
     }
 
     private func makeBlockFeedsItem(blockedFeeds blockedFeeds: Bool) -> ActionSheetView.Item {
-        let title = NSLocalizedString("Hide these feeds", comment: "")
-        let titleColor = UIColor(red: 63/255.0, green: 63/255.0, blue: 63/255.0, alpha: 1)
-        let subtitle = NSLocalizedString("Feeds by this creator will remove from your timeline.", comment: "")
-        let subtitleColor = UIColor(red: 199/255.0, green: 199/255.0, blue: 204/255.0, alpha: 1)
-        return .SubtitleSwitch(title: title, titleColor: titleColor, subtitle: subtitle, subtitleColor: subtitleColor, switchOn: blockedFeeds, action: { [weak self] switchOn in
+
+        return .SubtitleSwitch(
+            title: String.trans_titleHideFeedsFromThisUser,
+            titleColor: UIColor(red: 63/255.0, green: 63/255.0, blue: 63/255.0, alpha: 1),
+            subtitle: String.trans_promptFeedsByThisCreatorWillNotAppear,
+            subtitleColor: UIColor.yep_mangmorGrayColor(),
+            switchOn: blockedFeeds,
+            action: { [weak self] switchOn in
                 self?.toggleBlockFeedsAction?()
             }
         )
@@ -39,8 +42,8 @@ class FeedsMoreViewManager {
         let cancelItem = ActionSheetView.Item.Cancel
 
         let view = ActionSheetView(items: [
-            self.makeBlockFeedsItem(blockedFeeds: self.blockedFeeds),
-            cancelItem,
+                self.makeBlockFeedsItem(blockedFeeds: self.blockedFeeds),
+                cancelItem,
             ]
         )
 
@@ -49,3 +52,4 @@ class FeedsMoreViewManager {
         return view
     }()
 }
+

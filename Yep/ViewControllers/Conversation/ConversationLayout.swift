@@ -7,9 +7,8 @@
 //
 
 import UIKit
-import QuartzCore
 
-class ConversationLayout: UICollectionViewFlowLayout {
+final class ConversationLayout: UICollectionViewFlowLayout {
 
     override func prepareLayout() {
         super.prepareLayout()
@@ -17,7 +16,7 @@ class ConversationLayout: UICollectionViewFlowLayout {
         minimumLineSpacing = YepConfig.ChatCell.lineSpacing
     }
 
-    var insertIndexPathSet = Set<NSIndexPath>()
+    private var insertIndexPathSet = Set<NSIndexPath>()
 
     override func prepareForCollectionViewUpdates(updateItems: [UICollectionViewUpdateItem]) {
         super.prepareForCollectionViewUpdates(updateItems)
@@ -38,29 +37,20 @@ class ConversationLayout: UICollectionViewFlowLayout {
 
         self.insertIndexPathSet = insertIndexPathSet
     }
-    
-//    override func layoutAttributesForSupplementaryViewOfKind(elementKind: String, atIndexPath indexPath: NSIndexPath) -> UICollectionViewLayoutAttributes? {
-//        
-//        let attribute = super.layoutAttributesForItemAtIndexPath(indexPath)
-//        
-//        attribute?.alpha = 1.0
-//        
-//        return attribute
-//    }
 
     override func initialLayoutAttributesForAppearingItemAtIndexPath(itemIndexPath: NSIndexPath) -> UICollectionViewLayoutAttributes? {
 
         let attributes = layoutAttributesForItemAtIndexPath(itemIndexPath)
-        
-        if insertIndexPathSet.contains(itemIndexPath) && insertIndexPathSet.count == 1{
-            attributes?.frame.origin.y += 30
-//            attributes?.alpha = 0
 
-            insertIndexPathSet.remove(itemIndexPath)
+        // ref commit: 0183ad099ed9
+        if insertIndexPathSet.count == 1 {
+            if insertIndexPathSet.contains(itemIndexPath) {
+                attributes?.frame.origin.y += 30
+                insertIndexPathSet.remove(itemIndexPath)
+            }
         }
 
         return attributes
     }
-    
 }
 

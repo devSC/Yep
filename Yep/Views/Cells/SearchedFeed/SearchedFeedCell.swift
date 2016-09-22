@@ -7,8 +7,9 @@
 //
 
 import UIKit
+import YepKit
 
-class SearchedFeedCell: UITableViewCell {
+final class SearchedFeedCell: UITableViewCell {
 
     @IBOutlet weak var mediaView: FeedMediaView!
     @IBOutlet weak var nameLabel: UILabel!
@@ -17,12 +18,6 @@ class SearchedFeedCell: UITableViewCell {
         super.awakeFromNib()
 
         separatorInset = YepConfig.SearchedItemCell.separatorInset
-    }
-
-    override func setSelected(selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
     }
 
     override func prepareForReuse() {
@@ -37,7 +32,7 @@ class SearchedFeedCell: UITableViewCell {
     func configureWithFeed(feed: Feed, keyword: String?) {
 
         if let keyword = keyword {
-            nameLabel.attributedText = feed.body.yep_hightlightSearchKeyword(keyword)
+            nameLabel.attributedText = feed.body.yep_hightlightSearchKeyword(keyword, baseFont: YepConfig.SearchedItemCell.nicknameFont, baseColor: YepConfig.SearchedItemCell.nicknameColor)
 
         } else {
             nameLabel.text = feed.body
@@ -48,5 +43,5 @@ class SearchedFeedCell: UITableViewCell {
         })
         mediaView.setImagesWithAttachments(attachments)
     }
-
 }
+

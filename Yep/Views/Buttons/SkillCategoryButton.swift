@@ -9,7 +9,7 @@
 import UIKit
 
 @IBDesignable
-class SkillCategoryButton: UIButton {
+final class SkillCategoryButton: UIButton {
 
     @IBInspectable var categoryImage: UIImage = UIImage() {
         willSet {
@@ -57,7 +57,7 @@ class SkillCategoryButton: UIButton {
     lazy var arrowImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .Center
-        imageView.image = UIImage(named: "icon_skill_category_arrow")
+        imageView.image = UIImage.yep_iconSkillCategoryArrow
         imageView.tintColor = UIColor.whiteColor()
         imageView.tintAdjustmentMode = .Normal
         return imageView
@@ -82,7 +82,7 @@ class SkillCategoryButton: UIButton {
         categoryTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         arrowImageView.translatesAutoresizingMaskIntoConstraints = false
 
-        let viewsDictionary = [
+        let viewsDictionary: [String: AnyObject] = [
             "categoryImageView": categoryImageView,
             "categoryTitleLabel": categoryTitleLabel,
             "arrowImageView": arrowImageView,

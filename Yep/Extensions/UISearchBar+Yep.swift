@@ -7,15 +7,16 @@
 //
 
 import UIKit
+import KeypathObserver
 
 extension UISearchBar {
 
     var yep_cancelButton: UIButton? {
 
         for subview in self.subviews {
-            println("subview: \(subview)")
+            //println("subview: \(subview)")
             for subview in subview.subviews {
-                println("----subview: \(subview)")
+                //println("----subview: \(subview)")
                 if let cancelButton = subview as? UIButton {
                     return cancelButton
                 }
@@ -30,20 +31,25 @@ extension UISearchBar {
         yep_cancelButton?.enabled = true
     }
 
-    func yep_makeSureCancelButtonAlwaysEnabled() -> ObjectKeypathObserver? {
+    func yep_makeSureCancelButtonAlwaysEnabled() -> KeypathObserver<UIButton, Bool>? {
 
         guard let cancelButton = yep_cancelButton else {
             println("Not cancelButton in searchBar!")
             return nil
         }
 
-        return ObjectKeypathObserver(object: cancelButton, keypath: "enabled", afterValueChanged: { object in
-            if let cancelButton = object as? UIButton {
-                if !cancelButton.enabled {
+        return KeypathObserver(
+            object: cancelButton,
+            keypath: "enabled",
+            valueTransformer: { $0 as? Bool },
+            valueUpdated: { [weak self] enabled in
+                guard let cancelButton = self?.yep_cancelButton else { return }
+                guard let enabled = enabled else { return }
+                if !enabled {
                     cancelButton.enabled = true
                 }
             }
-        })
+        )
     }
 
     var yep_textField: UITextField? {
